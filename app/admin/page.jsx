@@ -155,17 +155,7 @@ export default function AdminPage() {
               : "border-transparent text-gray-500 hover:text-gray-900"
           }`}
         >
-          <UilBox size={16} /> Overview Dashboard
-        </button>
-        <button
-          onClick={() => setActiveTab("products")}
-          className={`pb-3 px-2 text-sm font-extrabold flex items-center gap-2 transition-colors border-b-2 ${
-            activeTab === "products"
-              ? "border-[#F58220] text-[#F58220]"
-              : "border-transparent text-gray-500 hover:text-gray-900"
-          }`}
-        >
-          <UilShoppingBag size={16} /> Products & Inventory ({products.length})
+          <UilBox size={16} /> Dashboard & Inventory ({products.length})
         </button>
         <button
           onClick={() => setActiveTab("orders")}
@@ -180,7 +170,7 @@ export default function AdminPage() {
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* TAB 1: OVERVIEW DASHBOARD */}
+      {/* UNIFIED TAB 1: DASHBOARD & INVENTORY */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "dashboard" && (
         <div className="space-y-6">
@@ -227,45 +217,32 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Quick Actions Bar */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-xs flex items-center justify-between flex-wrap gap-4">
+          {/* Search and Action Toolbar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-xs">
             <div>
-              <h3 className="font-extrabold text-gray-900 text-lg">Product Inventory Management</h3>
-              <p className="text-xs text-gray-500">Quickly add a new item or update existing stock levels</p>
-            </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-[#F58220] hover:bg-[#E06D0F] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-2"
-            >
-              <UilPlus size={16} /> Add New Product
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* TAB 2: PRODUCTS & INVENTORY */}
-      {/* ------------------------------------------------------------------ */}
-      {activeTab === "products" && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-gray-100">
-            <div className="relative w-full sm:w-80">
-              <UilSearch size={16} className="text-gray-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="Search by name, ID or category..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold focus:border-[#F58220] outline-hidden"
-              />
+              <h3 className="font-extrabold text-gray-900 text-base">Product Inventory Management</h3>
+              <p className="text-xs text-gray-500">Live multi-device real-time sync with Supabase PostgreSQL</p>
             </div>
 
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="w-full sm:w-auto bg-[#F58220] hover:bg-[#E06D0F] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <UilPlus size={16} /> Add New Product
-            </button>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <UilSearch size={16} className="text-gray-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search by name, ID or category..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold focus:border-[#F58220] outline-hidden"
+                />
+              </div>
+
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-[#F58220] hover:bg-[#E06D0F] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 shrink-0"
+              >
+                <UilPlus size={16} /> Add Product
+              </button>
+            </div>
           </div>
 
           {/* Products Table */}
@@ -303,7 +280,7 @@ export default function AdminPage() {
                       </td>
 
                       <td className="p-3.5 capitalize font-semibold text-gray-700">
-                        {product.subcategory?.replace(/-/g, " ")}
+                        {product.subcategory?.replace(/-/g, " ") || product.category?.replace(/-/g, " ")}
                       </td>
 
                       <td className="p-3.5 font-bold text-gray-900">

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.products (
   price NUMERIC(10,2) NOT NULL,
   original_price NUMERIC(10,2),
   discount INTEGER DEFAULT 0,
-  rating NUMERIC(3,2) DEFAULT 4.5,
+  rating NUMERIC(3,2) DEFAULT 4.8,
   reviews_count INTEGER DEFAULT 12,
   image TEXT NOT NULL,
   description TEXT,
@@ -54,16 +54,29 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 
--- 5. RLS Policies for Products
+-- 5. RLS Policies for Products (Explicit SELECT, INSERT, UPDATE, DELETE)
 DROP POLICY IF EXISTS "Public Read Products" ON public.products;
 CREATE POLICY "Public Read Products" 
   ON public.products FOR SELECT 
   USING (true);
 
-DROP POLICY IF EXISTS "Public Insert/Update Products" ON public.products;
-CREATE POLICY "Public Insert/Update Products" 
-  ON public.products FOR ALL 
+DROP POLICY IF EXISTS "Public Insert Products" ON public.products;
+CREATE POLICY "Public Insert Products" 
+  ON public.products FOR INSERT 
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Update Products" ON public.products;
+CREATE POLICY "Public Update Products" 
+  ON public.products FOR UPDATE 
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Delete Products" ON public.products;
+CREATE POLICY "Public Delete Products" 
+  ON public.products FOR DELETE 
   USING (true);
+
+DROP POLICY IF EXISTS "Public Insert/Update Products" ON public.products;
 
 -- 6. RLS Policies for Orders & Order Items
 DROP POLICY IF EXISTS "Public Create Orders" ON public.orders;
@@ -79,7 +92,8 @@ CREATE POLICY "Public Read Orders"
 DROP POLICY IF EXISTS "Public Update Orders" ON public.orders;
 CREATE POLICY "Public Update Orders" 
   ON public.orders FOR UPDATE 
-  USING (true);
+  USING (true)
+  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Public Create Order Items" ON public.order_items;
 CREATE POLICY "Public Create Order Items" 
@@ -91,12 +105,12 @@ CREATE POLICY "Public Read Order Items"
   ON public.order_items FOR SELECT 
   USING (true);
 
--- Indexes for Fast Query Performance
+-- Fast Query Indexes
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
 CREATE INDEX IF NOT EXISTS idx_products_subcategory ON public.products(subcategory);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
 
--- 7. Insert Initial Seed Products
+-- 7. Sample Seed Products
 INSERT INTO public.products (title, slug, category, subcategory, price, original_price, discount, rating, reviews_count, image, description, stock, is_featured, badge)
 VALUES
 ('Pro Noise Cancelling Wireless Earbuds', 'pro-noise-cancelling-earbuds', 'smart-gadgets', 'audio-wearables', 8500, 12000, 29, 4.8, 142, 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=600&auto=format&fit=crop&q=80', 'Active Noise Cancelling Bluetooth 5.3 Earbuds with 30hr Playtime.', 45, true, 'Best Seller'),
