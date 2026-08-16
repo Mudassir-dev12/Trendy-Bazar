@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@iconscout/react-unicons": "^2.2.5",
+    "@supabase/supabase-js": "^2.112.3",
     "@tailwindcss/postcss": "^4.3.3",
     "framer-motion": "^13.1.0",
     "lucide-react": "^1.31.0",

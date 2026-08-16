@@ -9,22 +9,30 @@ import {
   UilShield,
   UilBars,
   UilTimes,
-  UilPhone
+  UilPhone,
+  UilAngleDown,
+  UilAngleUp
 } from "@iconscout/react-unicons";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { slideInLeft, buttonPressProps } from "@/lib/motion";
+import { categories } from "@/data/categories";
 
 export default function Header() {
   const { totalItems, setIsCartOpen } = useCart();
   const { wishlistCount } = useWishlist();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [expandedCat, setExpandedCat] = useState("smart-gadgets");
   const [mounted, setMounted] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const toggleCategoryExpand = (catSlug) => {
+    setExpandedCat((prev) => (prev === catSlug ? null : catSlug));
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-xs">
@@ -36,7 +44,7 @@ export default function Header() {
               Flash Offer
             </span>
             <span className="truncate">
-              ⚡ Free Delivery over Rs. 15,000! Code: <strong className="underline">TRENDY2026</strong>
+              ⚡ Free Delivery over Rs. 5,000! Code: <strong className="underline">TRENDY2026</strong>
             </span>
           </div>
           <div className="hidden md:flex items-center gap-5 text-[11px] opacity-90 shrink-0">
@@ -164,7 +172,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer Overlay */}
+      {/* Mobile Navigation Drawer Overlay with Category & Subcategory Accordion */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
@@ -179,55 +187,114 @@ export default function Header() {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="w-4/5 max-w-sm bg-white h-full shadow-2xl p-5 overflow-y-auto"
+              className="w-5/6 max-w-xs bg-white h-full shadow-2xl p-4 sm:p-5 overflow-y-auto flex flex-col justify-between"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-[#F58220] rounded-lg p-1 flex items-center justify-center">
-                    <img src="/logo.svg" alt="Logo" className="w-full h-full" suppressHydrationWarning />
+              <div>
+                {/* Header title */}
+                <div className="flex items-center justify-between pb-3.5 border-b border-gray-100 mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-[#F58220] rounded-lg p-1 flex items-center justify-center">
+                      <img src="/logo.svg" alt="Logo" className="w-full h-full" suppressHydrationWarning />
+                    </div>
+                    <span className="font-bold text-gray-900 text-base">Trendy Bazaar</span>
                   </div>
-                  <span className="font-bold text-gray-900 text-base">Trendy Bazaar</span>
+                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
+                    <UilTimes size={20} />
+                  </button>
                 </div>
-                <button onClick={() => setIsMobileMenuOpen(false)} className="p-1 text-gray-400 hover:text-gray-600">
-                  <UilTimes size={20} />
-                </button>
+
+                <div className="space-y-3">
+                  {/* Top quick links */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link
+                      href="/cart"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center justify-between p-2.5 bg-orange-50 text-[#F58220] rounded-xl font-bold text-xs"
+                    >
+                      <span className="flex items-center gap-1.5"><UilShoppingBag size={15} /> Cart</span>
+                      {mounted && <span className="bg-[#F58220] text-white text-[10px] px-1.5 py-0.2 rounded-full">{totalItems}</span>}
+                    </Link>
+                    <Link
+                      href="/wishlist"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex items-center justify-between p-2.5 bg-gray-50 text-gray-800 rounded-xl font-bold text-xs"
+                    >
+                      <span className="flex items-center gap-1.5"><UilHeart size={15} className="text-red-500" /> Wishlist</span>
+                      {mounted && <span className="bg-gray-200 text-gray-700 text-[10px] px-1.5 py-0.2 rounded-full">{wishlistCount}</span>}
+                    </Link>
+                  </div>
+
+                  {/* Categories & Subcategories Accordion */}
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2.5">
+                      Categories & Subcategories
+                    </p>
+                    <div className="space-y-2">
+                      {categories.map((cat) => {
+                        const isExpanded = expandedCat === cat.slug;
+                        return (
+                          <div key={cat.id} className="border border-gray-100 rounded-xl overflow-hidden bg-gray-50/50">
+                            {/* Category Header */}
+                            <div className="flex items-center justify-between p-2.5 bg-white">
+                              <Link
+                                href={`/category/${cat.slug}`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="font-extrabold text-xs text-gray-900 hover:text-[#F58220] transition-colors flex-1"
+                              >
+                                {cat.name}
+                              </Link>
+                              <button
+                                onClick={() => toggleCategoryExpand(cat.slug)}
+                                className="p-1 text-gray-400 hover:text-gray-700"
+                                aria-label="Toggle subcategories"
+                              >
+                                {isExpanded ? <UilAngleUp size={18} /> : <UilAngleDown size={18} />}
+                              </button>
+                            </div>
+
+                            {/* Subcategories Collapsible List */}
+                            <AnimatePresence>
+                              {isExpanded && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.2 }}
+                                  className="overflow-hidden bg-gray-50 border-t border-gray-100 px-3 py-1.5"
+                                >
+                                  <div className="space-y-1 py-1">
+                                    {cat.subcategories.map((sub) => (
+                                      <Link
+                                        key={sub.id}
+                                        href={`/category/${cat.slug}?sub=${sub.slug}`}
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                        className="block px-2.5 py-1.5 rounded-lg text-xs font-semibold text-gray-600 hover:text-[#F58220] hover:bg-orange-50 transition-colors"
+                                      >
+                                        • {sub.name}
+                                      </Link>
+                                    ))}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-4">
+              {/* Admin Footer Link */}
+              <div className="pt-4 border-t border-gray-100 mt-4">
                 <Link
                   href="/admin"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center gap-3 p-2.5 bg-orange-50 text-[#F58220] rounded-xl font-bold text-sm"
+                  className="flex items-center justify-center gap-2 p-2.5 bg-gray-900 text-white rounded-xl font-extrabold text-xs"
                 >
                   <UilShield size={16} /> Admin Management Panel
                 </Link>
-                <Link
-                  href="/cart"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-between p-2.5 hover:bg-gray-50 rounded-xl font-semibold text-sm text-gray-800"
-                >
-                  <span className="flex items-center gap-2"><UilShoppingBag size={16} className="text-[#F58220]" /> Shopping Cart</span>
-                  {mounted && <span className="bg-[#F58220] text-white text-xs px-2 py-0.5 rounded-full">{totalItems}</span>}
-                </Link>
-                <Link
-                  href="/wishlist"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-between p-2.5 hover:bg-gray-50 rounded-xl font-semibold text-sm text-gray-800"
-                >
-                  <span className="flex items-center gap-2"><UilHeart size={16} className="text-red-500" /> Saved Wishlist</span>
-                  {mounted && <span className="bg-gray-100 text-gray-700 text-xs px-2 py-0.5 rounded-full">{wishlistCount}</span>}
-                </Link>
-
-                <div className="pt-2 border-t border-gray-100">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Shop Categories</p>
-                  <div className="space-y-1">
-                    <Link href="/category/smart-gadgets" onClick={() => setIsMobileMenuOpen(false)} className="block p-2 text-sm font-semibold text-gray-700 hover:text-[#F58220]">📱 Smart Gadgets</Link>
-                    <Link href="/category/home-essentials" onClick={() => setIsMobileMenuOpen(false)} className="block p-2 text-sm font-semibold text-gray-700 hover:text-[#F58220]">🏠 Home Essentials</Link>
-                    <Link href="/category/home-appliances" onClick={() => setIsMobileMenuOpen(false)} className="block p-2 text-sm font-semibold text-gray-700 hover:text-[#F58220]">⚡ Home Appliances</Link>
-                    <Link href="/category/toys" onClick={() => setIsMobileMenuOpen(false)} className="block p-2 text-sm font-semibold text-gray-700 hover:text-[#F58220]">🧸 Toys</Link>
-                  </div>
-                </div>
               </div>
             </motion.div>
           </motion.div>

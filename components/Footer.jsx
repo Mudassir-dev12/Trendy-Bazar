@@ -26,7 +26,7 @@ export default function Footer() {
             </div>
             <div>
               <h4 className="font-bold text-white text-sm">Free Delivery</h4>
-              <p className="text-xs text-gray-400 mt-0.5">On all orders over Rs. 15,000</p>
+              <p className="text-xs text-gray-400 mt-0.5">On all orders over Rs. 5,000</p>
             </div>
           </div>
 
@@ -45,8 +45,8 @@ export default function Footer() {
               <UilSync size={24} />
             </div>
             <div>
-              <h4 className="font-bold text-white text-sm">30 Days Return</h4>
-              <p className="text-xs text-gray-400 mt-0.5">Hassle-free return policy</p>
+              <h4 className="font-bold text-white text-sm">Direct Warranty</h4>
+              <p className="text-xs text-gray-400 mt-0.5">100% manufacturer warranty</p>
             </div>
           </div>
 

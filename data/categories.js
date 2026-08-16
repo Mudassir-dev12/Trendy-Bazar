@@ -5,7 +5,6 @@ export const categories = [
     id: "smart-gadgets",
     name: "Smart Gadgets",
     slug: "smart-gadgets",
-    icon: "📱",
     badge: "Hot Tech",
     description: "Latest smartphones, wearables, smart home tech & mobile accessories",
     subcategories: [
@@ -19,7 +18,6 @@ export const categories = [
     id: "home-essentials",
     name: "Home Essentials",
     slug: "home-essentials",
-    icon: "🏠",
     badge: "Everyday Best",
     description: "Organize, clean, and elevate your living spaces with premium home essentials",
     subcategories: [
@@ -33,7 +31,6 @@ export const categories = [
     id: "home-appliances",
     name: "Home Appliances",
     slug: "home-appliances",
-    icon: "⚡",
     badge: "Super Savers",
     description: "Modern labor-saving kitchen, cooling, heating & personal care appliances",
     subcategories: [
@@ -47,7 +44,6 @@ export const categories = [
     id: "toys",
     name: "Toys",
     slug: "toys",
-    icon: "🧸",
     badge: "Kids Favorite",
     description: "Fun, educational, remote control, and creative play for kids of all ages",
     subcategories: [

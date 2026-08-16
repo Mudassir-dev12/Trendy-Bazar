@@ -33,7 +33,8 @@ export default function AdminPage() {
     updateStock,
     deleteProduct,
     resetToDefault,
-    updateStatus
+    updateStatus,
+    isSupabaseConfigured
   } = useProducts();
 
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, products, orders
@@ -119,6 +120,20 @@ export default function AdminPage() {
             <p className="text-xs text-gray-300 mt-1">
               Manage inventory, adjust product stock, add new catalog items & update customer orders
             </p>
+
+            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold border border-white/20 text-white">
+              {isSupabaseConfigured ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Supabase PostgreSQL Backend Live</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span>Supabase Ready (Set credentials in .env.local)</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 

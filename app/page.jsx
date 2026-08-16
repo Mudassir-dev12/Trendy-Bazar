@@ -102,7 +102,7 @@ export default function HomePage() {
                   Quality Guaranteed & Direct Manufacturer Warranty
                 </h2>
                 <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-                  Shop over 100+ high quality items across 16 subcategories with express dispatch and 30-day hassle-free returns.
+                  Shop over 100+ high quality items across 16 subcategories with express dispatch and direct manufacturer support.
                 </p>
               </div>
 

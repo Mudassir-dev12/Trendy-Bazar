@@ -1,54 +1,35 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 /**
  * 1. Typewriter Effect Component
- * Types out sentences letter-by-letter with a blinking cursor.
+ * Types out text letter-by-letter live with a blinking cursor whenever text changes.
  */
-export function TypewriterText({ texts = [], typingSpeed = 50, delayAfterText = 3000, className = "" }) {
-  const [displayText, setDisplayText] = useState("");
-  const [textIndex, setTextIndex] = useState(0);
-  const [charIndex, setCharIndex] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const textList = Array.isArray(texts) ? texts : [texts];
+export function TypewriterText({ text = "", typingSpeed = 45, className = "" }) {
+  const [displayed, setDisplayed] = useState("");
 
   useEffect(() => {
-    if (!textList || textList.length === 0) return;
-
-    const currentFullText = textList[textIndex % textList.length] || "";
-
-    const handleTyping = () => {
-      if (!isDeleting) {
-        setDisplayText(currentFullText.slice(0, charIndex + 1));
-        setCharIndex((prev) => prev + 1);
-
-        if (charIndex + 1 >= currentFullText.length) {
-          if (textList.length > 1) {
-            setTimeout(() => setIsDeleting(true), delayAfterText);
-          }
-        }
+    setDisplayed("");
+    if (!text) return;
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i <= text.length) {
+        setDisplayed(text.substring(0, i));
+        i++;
       } else {
-        setDisplayText(currentFullText.slice(0, charIndex - 1));
-        setCharIndex((prev) => prev - 1);
-
-        if (charIndex - 1 <= 0) {
-          setIsDeleting(false);
-          setTextIndex((prev) => (prev + 1) % textList.length);
-        }
+        clearInterval(interval);
       }
-    };
+    }, typingSpeed);
 
-    const timer = setTimeout(handleTyping, isDeleting ? typingSpeed / 2 : typingSpeed);
-    return () => clearTimeout(timer);
-  }, [charIndex, isDeleting, textIndex, textList, typingSpeed, delayAfterText]);
+    return () => clearInterval(interval);
+  }, [text, typingSpeed]);
 
   return (
-    <span className={`inline-flex items-center ${className}`}>
-      <span>{displayText}</span>
-      <span className="typewriter-cursor" />
+    <span className={`inline-flex items-center flex-wrap ${className}`}>
+      <span>{displayed}</span>
+      <span className="inline-block w-2.5 h-[1.15em] bg-[#F58220] animate-pulse ml-1 rounded-xs align-middle shrink-0" />
     </span>
   );
 }
@@ -83,24 +64,49 @@ export function ScrollReveal({ children, direction = "up", delay = 0, className 
 }
 
 /**
- * 3. Split Text Animation Component
- * Breaks text into words for dramatic hero reveals.
+ * 3. Split Text Animation Component (Framer Motion Physics)
+ * Breaks text into words for dramatic sequential staggered hero reveals.
  */
-export function SplitText({ text = "", className = "", wordClassName = "", staggerDelay = 50 }) {
+export function SplitText({ text = "", className = "", wordClassName = "", staggerDelay = 0.12 }) {
   if (!text) return null;
   const words = text.split(" ");
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: staggerDelay
+      }
+    }
+  };
+
+  const wordVariants = {
+    hidden: { opacity: 0, y: 25, rotateX: -30 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      rotateX: 0,
+      transition: { duration: 0.45, ease: "easeOut" }
+    }
+  };
+
   return (
-    <span className={`inline-block ${className}`}>
+    <motion.span
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className={`inline-flex flex-wrap ${className}`}
+    >
       {words.map((word, index) => (
-        <span
-          key={index}
-          className={`animate-split-word mr-[0.25em] ${wordClassName}`}
-          style={{ animationDelay: `${index * staggerDelay}ms` }}
+        <motion.span
+          key={`${word}-${index}`}
+          variants={wordVariants}
+          className={`inline-block mr-[0.25em] ${wordClassName}`}
         >
           {word}
-        </span>
+        </motion.span>
       ))}
-    </span>
+    </motion.span>
   );
 }

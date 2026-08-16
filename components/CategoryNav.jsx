@@ -39,7 +39,6 @@ export default function CategoryNav() {
                         : "text-gray-700 hover:text-[#F58220] hover:bg-gray-50"
                     }`}
                   >
-                    <span className="text-sm">{cat.icon}</span>
                     <span>{cat.name}</span>
                     <UilAngleDown
                       size={14}
@@ -62,8 +61,7 @@ export default function CategoryNav() {
                         className="absolute top-full left-0 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 z-50 overflow-hidden"
                       >
                         <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
-                          <span className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
-                            <span className="text-base">{cat.icon}</span>
+                          <span className="font-extrabold text-xs text-gray-900">
                             {cat.name} Subcategories
                           </span>
                           <Link
@@ -105,30 +103,25 @@ export default function CategoryNav() {
             })}
           </div>
 
-          {/* Right Highlights Links */}
+          {/* Quick Right Shortcuts */}
           <div className="flex items-center gap-4 text-xs font-bold text-gray-600">
             <Link
-              href="/#flash-deals"
-              className="flex items-center gap-1 text-red-600 hover:text-red-700 bg-red-50 px-2.5 py-1 rounded-full transition-colors hover:scale-105"
-            >
-              <UilFire size={14} className="text-red-500 animate-pulse" />
-              <span>Flash Deals</span>
-            </Link>
-
-            <Link
               href="/category/smart-gadgets"
-              className="flex items-center gap-1 text-amber-600 hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full transition-colors hover:scale-105"
+              className="flex items-center gap-1 text-[#F58220] hover:underline"
             >
-              <UilSun size={14} className="text-amber-500" />
-              <span>Trending Tech</span>
+              <UilFire size={15} /> Flash Deals
             </Link>
-
             <Link
-              href="/#top-picks"
-              className="flex items-center gap-1 text-[#F58220] hover:text-[#E06D0F] bg-orange-50 px-2.5 py-1 rounded-full transition-colors hover:scale-105"
+              href="/category/home-appliances"
+              className="flex items-center gap-1 hover:text-[#F58220] transition-colors"
             >
-              <UilTagAlt size={14} className="text-[#F58220]" />
-              <span>Top Sellers</span>
+              <UilSun size={15} /> Super Savers
+            </Link>
+            <Link
+              href="/category/home-essentials"
+              className="flex items-center gap-1 hover:text-[#F58220] transition-colors"
+            >
+              <UilTagAlt size={15} /> Clearance
             </Link>
           </div>
         </div>

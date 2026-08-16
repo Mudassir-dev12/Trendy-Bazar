@@ -72,7 +72,7 @@ export default function QuickCategoryBar() {
     // Home Appliances & Subcategories
     {
       id: "home-appliances",
-      name: "⚡ Home Appliances",
+      name: "Home Appliances",
       slug: "home-appliances",
       image: "https://images.unsplash.com/photo-1558317374-067fb5f30001?w=300&auto=format&fit=crop&q=80"
     },
@@ -104,7 +104,7 @@ export default function QuickCategoryBar() {
     // Smart Gadgets & Subcategories
     {
       id: "smart-gadgets",
-      name: "📱 Smart Gadgets",
+      name: "Smart Gadgets",
       slug: "smart-gadgets",
       image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300&auto=format&fit=crop&q=80"
     },
@@ -136,7 +136,7 @@ export default function QuickCategoryBar() {
     // Toys & Subcategories
     {
       id: "toys",
-      name: "🧸 Toys",
+      name: "Toys",
       slug: "toys",
       image: "https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=300&auto=format&fit=crop&q=80"
     },
