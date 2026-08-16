@@ -31,7 +31,7 @@ export default function CartDrawer() {
   } = useCart();
   const prefersReducedMotion = useReducedMotion();
 
-  const freeShippingThreshold = 15000;
+  const freeShippingThreshold = 5000;
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
   const shippingProgress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
 
