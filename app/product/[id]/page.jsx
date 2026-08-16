@@ -141,6 +141,29 @@ export default function ProductDetailPage({ params }) {
               <UilHeart size={20} className={isFavorited ? "fill-red-500 text-red-500" : ""} />
             </motion.button>
           </div>
+
+          {/* Multi-Image Thumbnail Gallery */}
+          {Array.isArray(product.images) && product.images.length > 1 && (
+            <div className="grid grid-cols-5 gap-2.5 pt-1">
+              {product.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setImgSrc(img)}
+                  className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                    imgSrc === img
+                      ? "border-[#F58220] ring-2 ring-orange-200 shadow-md scale-105"
+                      : "border-gray-200 hover:border-gray-300 opacity-75 hover:opacity-100"
+                  }`}
+                >
+                  <img
+                    src={img || FALLBACK_IMAGE}
+                    alt={`${product.name} view ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Details & Purchasing */}

@@ -40,10 +40,10 @@ export default function CartPage() {
     }
   };
 
-  const freeShipping = subtotal >= 15000;
-  const shippingCost = freeShipping ? 0 : 499;
-  const estimatedTax = subtotal * 0.08;
-  const total = Math.max(0, subtotal + shippingCost + estimatedTax - appliedDiscount);
+  const freeShipping = subtotal >= 5000;
+  const shippingCost = freeShipping ? 0 : 300;
+  const estimatedTax = 0;
+  const total = Math.max(0, subtotal + shippingCost - appliedDiscount);
 
   if (cart.length === 0) {
     return (
@@ -203,15 +203,10 @@ export default function CartPage() {
               )}
 
               <div className="flex justify-between text-gray-600">
-                <span>Estimated Shipping</span>
+                <span>Flat Delivery Charge</span>
                 <span className="font-bold text-gray-900">
-                  {freeShipping ? <span className="text-green-600 font-bold">FREE</span> : formatPrice(shippingCost)}
+                  {freeShipping ? <span className="text-green-600 font-extrabold">FREE (Over Rs. 5,000)</span> : formatPrice(shippingCost)}
                 </span>
-              </div>
-
-              <div className="flex justify-between text-gray-600">
-                <span>Estimated Sales Tax (8%)</span>
-                <span className="font-bold text-gray-900">{formatPrice(estimatedTax)}</span>
               </div>
 
               <div className="flex justify-between text-lg font-black text-gray-900 pt-3 border-t border-gray-100">

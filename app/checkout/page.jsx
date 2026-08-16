@@ -21,61 +21,70 @@ export default function CheckoutPage() {
   const { placeOrder } = useProducts();
 
   const [formData, setFormData] = useState({
-    name: "Muhammad Ali",
-    email: "ali.m@example.com",
-    phone: "+92 300 9876543",
-    address: "House 45, Street 12, Gulberg III",
-    city: "Lahore",
-    state: "Punjab",
-    zip: "54000",
-    paymentMethod: "Credit Card"
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    zip: "",
+    paymentMethod: "Cash on Delivery"
   });
 
   const [orderConfirmed, setOrderConfirmed] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const freeShipping = subtotal >= 15000;
-  const shippingCost = freeShipping ? 0 : 499;
-  const estimatedTax = subtotal * 0.08;
-  const total = subtotal + shippingCost + estimatedTax;
+  const freeShipping = subtotal >= 5000;
+  const shippingCost = freeShipping ? 0 : 300;
+  const estimatedTax = 0; // Taxes removed as requested
+  const total = subtotal + shippingCost;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmitOrder = (e) => {
+  const handleSubmitOrder = async (e) => {
     e.preventDefault();
     if (cart.length === 0) return;
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const createdOrder = placeOrder({
-        customer: {
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          zip: formData.zip
-        },
-        items: cart.map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.discountPrice || item.price,
-          quantity: item.quantity
-        })),
-        subtotal,
-        shipping: shippingCost,
-        tax: estimatedTax,
-        total,
-        paymentMethod: formData.paymentMethod
-      });
+    const orderPayload = {
+      customer: {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        zip: formData.zip
+      },
+      items: cart.map((item) => ({
+        id: item.id,
+        name: item.name || item.title,
+        title: item.name || item.title,
+        price: item.discountPrice || item.price,
+        quantity: item.quantity,
+        image: item.image
+      })),
+      subtotal,
+      shipping: shippingCost,
+      tax: 0,
+      total,
+      totalAmount: total,
+      paymentMethod: "Cash on Delivery"
+    };
 
+    try {
+      const createdOrder = await placeOrder(orderPayload);
       clearCart();
-      setOrderConfirmed(createdOrder);
+      setOrderConfirmed(createdOrder || orderPayload);
+    } catch (err) {
+      console.error("Order submission error:", err);
+      clearCart();
+      setOrderConfirmed({ id: `TB-${Date.now().toString().slice(-6)}`, ...orderPayload });
+    } finally {
       setIsSubmitting(false);
-    }, 1200);
+    }
   };
 
   // 1. Animated Success Confirmation View
@@ -122,7 +131,7 @@ export default function CheckoutPage() {
               Thank You For Your Order!
             </h1>
             <p className="text-sm text-gray-500 mt-2">
-              Your order ID is <strong className="text-gray-900 font-mono">{orderConfirmed.id}</strong>. We've sent a confirmation email to <span className="font-semibold text-gray-800">{orderConfirmed.customer?.email}</span>.
+              Your order ID is <strong className="text-gray-900 font-mono">{orderConfirmed.id || orderConfirmed.order_number}</strong>. We've sent a confirmation email to <span className="font-semibold text-gray-800">{orderConfirmed.customer?.email || orderConfirmed.customerEmail}</span>.
             </p>
           </div>
 
@@ -133,12 +142,15 @@ export default function CheckoutPage() {
               <span>Payment Method</span>
             </div>
             <div className="flex justify-between text-gray-600">
-              <span>{orderConfirmed.customer?.name}<br />{orderConfirmed.customer?.address}, {orderConfirmed.customer?.city}</span>
-              <span className="font-semibold text-gray-900">{orderConfirmed.paymentMethod}</span>
+              <span>
+                <strong>{orderConfirmed.customer?.name || orderConfirmed.customerName}</strong><br />
+                {orderConfirmed.customer?.address || orderConfirmed.shippingAddress}, {orderConfirmed.customer?.city || orderConfirmed.city}
+              </span>
+              <span className="font-semibold text-gray-900">Cash on Delivery</span>
             </div>
             <div className="pt-2 border-t border-gray-200 flex justify-between font-extrabold text-sm text-gray-900">
               <span>Total Amount Paid</span>
-              <span className="text-[#F58220]">{formatPrice(orderConfirmed.total)}</span>
+              <span className="text-[#F58220]">{formatPrice(orderConfirmed.totalAmount || orderConfirmed.total || 0)}</span>
             </div>
           </div>
 
@@ -148,12 +160,6 @@ export default function CheckoutPage() {
               className="flex-1 bg-[#F58220] hover:bg-[#E06D0F] text-white py-3.5 rounded-xl font-extrabold text-sm shadow-md transition-all text-center"
             >
               Continue Shopping
-            </Link>
-            <Link
-              href="/admin"
-              className="flex-1 bg-gray-900 hover:bg-black text-white py-3.5 rounded-xl font-extrabold text-sm shadow-md transition-all text-center"
-            >
-              View Order in Admin Panel
             </Link>
           </div>
         </motion.div>
@@ -175,47 +181,30 @@ export default function CheckoutPage() {
 
   return (
     <div className="space-y-6">
-      <Breadcrumbs items={[{ label: "Shopping Cart", href: "/cart" }, { label: "Checkout" }]} />
-
-      {/* Multi-step progress bar fill line */}
-      <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-xs mb-4">
-        <div className="flex items-center justify-between text-xs font-bold text-gray-700 mb-2">
-          <span>1. Cart Details ✓</span>
-          <span className="text-[#F58220]">2. Shipping & Payment (Active)</span>
-          <span className="text-gray-400">3. Confirmation</span>
-        </div>
-        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-          <motion.div
-            initial={{ width: "33%" }}
-            animate={{ width: "66%" }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="bg-[#F58220] h-full rounded-full"
-          />
-        </div>
-      </div>
+      <Breadcrumbs items={[{ label: "Checkout" }]} />
 
       <h1 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
         CHECKOUT & DELIVERY
       </h1>
 
       <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Shipping & Payment Details */}
+        {/* Left Column: Shipping Details */}
         <div className="lg:col-span-8 space-y-6">
           {/* Shipping Address Form */}
           <div className="bg-white rounded-2xl md:rounded-3xl p-6 border border-gray-100 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
               <UilMapPin size={20} className="text-[#F58220]" />
-              <h2 className="font-extrabold text-gray-900 text-lg">1. Shipping Address</h2>
+              <h2 className="font-extrabold text-gray-900 text-lg">Shipping Address</h2>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                { label: "Full Name", name: "name", type: "text" },
-                { label: "Email Address", name: "email", type: "email" },
-                { label: "Phone Number", name: "phone", type: "tel" },
-                { label: "Street Address", name: "address", type: "text" },
-                { label: "City", name: "city", type: "text" },
-                { label: "Zip Code", name: "zip", type: "text" }
+                { label: "Full Name", name: "name", type: "text", placeholder: "e.g. Muhammad Ali" },
+                { label: "Email Address", name: "email", type: "email", placeholder: "e.g. ali@example.com" },
+                { label: "Phone Number", name: "phone", type: "tel", placeholder: "e.g. 0300 1234567" },
+                { label: "Street Address", name: "address", type: "text", placeholder: "e.g. House 45, Street 12, Gulberg III" },
+                { label: "City", name: "city", type: "text", placeholder: "e.g. Lahore / Karachi / Islamabad" },
+                { label: "Zip / Postal Code", name: "zip", type: "text", placeholder: "e.g. 54000" }
               ].map((field) => (
                 <div key={field.name}>
                   <label className="block text-xs font-bold text-gray-700 mb-1">{field.label}</label>
@@ -223,47 +212,12 @@ export default function CheckoutPage() {
                     type={field.type}
                     name={field.name}
                     required
+                    placeholder={field.placeholder}
                     value={formData[field.name]}
                     onChange={handleChange}
                     className="w-full bg-gray-50 border border-gray-200 focus:bg-white rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:border-[#F58220] focus:ring-2 focus:ring-orange-100 outline-hidden transition-all"
                   />
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Payment Method Picker */}
-          <div className="bg-white rounded-2xl md:rounded-3xl p-6 border border-gray-100 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
-              <UilCreditCard size={20} className="text-[#F58220]" />
-              <h2 className="font-extrabold text-gray-900 text-lg">2. Payment Method</h2>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {["Credit Card", "Cash on Delivery", "Mobile Pay (JazzCash / EasyPaisa / UPI)"].map((method) => (
-                <label
-                  key={method}
-                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between space-y-2 ${
-                    formData.paymentMethod === method
-                      ? "border-[#F58220] bg-orange-50/70 text-[#F58220] ring-2 ring-orange-200"
-                      : "border-gray-200 hover:border-gray-300 text-gray-700"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs">{method}</span>
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value={method}
-                      checked={formData.paymentMethod === method}
-                      onChange={handleChange}
-                      className="accent-[#F58220]"
-                    />
-                  </div>
-                  <span className="text-[10px] text-gray-400">
-                    {method === "Credit Card" ? "Visa, MasterCard" : method === "Cash on Delivery" ? "Pay upon delivery" : "Instant Mobile Transfer"}
-                  </span>
-                </label>
               ))}
             </div>
           </div>

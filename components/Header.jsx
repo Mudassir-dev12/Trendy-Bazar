@@ -48,9 +48,6 @@ export default function Header() {
             </span>
           </div>
           <div className="hidden md:flex items-center gap-5 text-[11px] opacity-90 shrink-0">
-            <Link href="/admin" className="hover:underline flex items-center gap-1 font-semibold bg-white/10 px-2 py-0.5 rounded-sm">
-              <UilShield size={14} /> Admin Panel
-            </Link>
             <span className="flex items-center gap-1">
               <UilPhone size={14} /> Support: 1-800-TRENDY
             </span>
@@ -98,7 +95,7 @@ export default function Header() {
             <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink min-w-0">
               <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 bg-[#F58220] rounded-xl p-1 shadow-md flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shrink-0">
                 <img
-                  src="/logo.svg"
+                  src="/logo.png"
                   alt="Trendy Bazaar Logo"
                   className="w-full h-full object-contain"
                   suppressHydrationWarning
@@ -115,18 +112,8 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* User Action Buttons (Wishlist, Cart, Admin) */}
+          {/* User Action Buttons (Wishlist, Cart) */}
           <div className="flex items-center gap-1 sm:gap-3 shrink-0">
-            {/* Admin link */}
-            <Link
-              href="/admin"
-              className="p-1.5 text-gray-600 hover:text-[#F58220] hover:bg-orange-50 rounded-full transition-colors relative flex items-center gap-1 text-xs font-semibold"
-              title="Admin Panel"
-            >
-              <UilShield size={19} className="text-gray-700 hover:text-[#F58220]" />
-              <span className="hidden md:inline">Admin</span>
-            </Link>
-
             {/* Wishlist Link */}
             <Link
               href="/wishlist"
@@ -195,7 +182,7 @@ export default function Header() {
                 <div className="flex items-center justify-between pb-3.5 border-b border-gray-100 mb-4">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-[#F58220] rounded-lg p-1 flex items-center justify-center">
-                      <img src="/logo.svg" alt="Logo" className="w-full h-full" suppressHydrationWarning />
+                      <img src="/logo.png" alt="Logo" className="w-full h-full" suppressHydrationWarning />
                     </div>
                     <span className="font-bold text-gray-900 text-base">Trendy Bazaar</span>
                   </div>
@@ -284,17 +271,6 @@ export default function Header() {
                     </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Admin Footer Link */}
-              <div className="pt-4 border-t border-gray-100 mt-4">
-                <Link
-                  href="/admin"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 p-2.5 bg-gray-900 text-white rounded-xl font-extrabold text-xs"
-                >
-                  <UilShield size={16} /> Admin Management Panel
-                </Link>
               </div>
             </motion.div>
           </motion.div>

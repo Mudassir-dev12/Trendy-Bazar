@@ -3,17 +3,13 @@ import { ProductProvider } from "@/context/ProductContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { ToastProvider } from "@/context/ToastContext";
-import Header from "@/components/Header";
-import CategoryNav from "@/components/CategoryNav";
-import Footer from "@/components/Footer";
-import CartDrawer from "@/components/CartDrawer";
-import ScrollToTopButton from "@/components/ScrollToTopButton";
+import LayoutShell from "@/components/LayoutShell";
 
 export const metadata = {
   title: "Trendy Bazaar | Catch the Trend, Love the Price",
   description: "Discover top smart gadgets, home essentials, appliances, and toys at unbeatable prices on Trendy Bazaar.",
   icons: {
-    icon: "/logo.svg",
+    icon: "/logo.png",
   },
 };
 
@@ -30,14 +26,9 @@ export default function RootLayout({ children }) {
           <ProductProvider>
             <CartProvider>
               <WishlistProvider>
-                <Header />
-                <CategoryNav />
-                <main className="flex-grow max-w-7xl w-full mx-auto px-4 py-4 md:py-6">
+                <LayoutShell>
                   {children}
-                </main>
-                <Footer />
-                <CartDrawer />
-                <ScrollToTopButton />
+                </LayoutShell>
               </WishlistProvider>
             </CartProvider>
           </ProductProvider>

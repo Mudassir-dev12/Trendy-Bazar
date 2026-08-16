@@ -67,7 +67,7 @@ export default function Footer() {
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="flex items-center gap-3 group">
               <div className="w-10 h-10 bg-[#F58220] rounded-xl p-1 flex items-center justify-center shadow-md">
-                <img src="/logo.svg" alt="Trendy Bazaar" className="w-full h-full" suppressHydrationWarning />
+                <img src="/logo.png" alt="Trendy Bazaar" className="w-full h-full" suppressHydrationWarning />
               </div>
               <div>
                 <span className="font-black text-xl text-white tracking-tight">
@@ -82,15 +82,6 @@ export default function Footer() {
             <p className="text-xs text-gray-400 leading-relaxed max-w-sm">
               Your trusted online destination for modern smart gadgets, kitchen & home essentials, electrical appliances, and educational toys at unbeatable direct bazaar pricing.
             </p>
-
-            <div className="pt-2">
-              <Link
-                href="/admin"
-                className="inline-flex items-center gap-1.5 text-xs font-bold bg-white/10 hover:bg-[#F58220] text-white px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <UilShield size={14} /> Access Admin Inventory Panel
-              </Link>
-            </div>
           </div>
 
           {/* Quick Links Column */}
@@ -129,11 +120,6 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2 text-xs text-gray-400">
               <li>
-                <Link href="/account" className="hover:text-[#F58220] transition-colors">
-                  My Account
-                </Link>
-              </li>
-              <li>
                 <Link href="/cart" className="hover:text-[#F58220] transition-colors">
                   Shopping Cart
                 </Link>
@@ -141,11 +127,6 @@ export default function Footer() {
               <li>
                 <Link href="/wishlist" className="hover:text-[#F58220] transition-colors">
                   Saved Wishlist
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin" className="hover:text-[#F58220] transition-colors">
-                  Admin Panel
                 </Link>
               </li>
             </ul>
