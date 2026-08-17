@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, use } from "react";
+import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -8,6 +8,7 @@ import Breadcrumbs from "@/components/Breadcrumbs";
 import RatingStars from "@/components/RatingStars";
 import ProductGrid from "@/components/ProductGrid";
 import CountUpPrice from "@/components/CountUpPrice";
+import ProductDetailSkeleton from "@/components/ProductDetailSkeleton";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useToast } from "@/context/ToastContext";
@@ -34,7 +35,7 @@ export default function ProductDetailPage({ params }) {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
 
-  const { products } = useProducts();
+  const { products, isLoading } = useProducts();
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { showToast } = useToast();
@@ -46,7 +47,21 @@ export default function ProductDetailPage({ params }) {
   const [added, setAdded] = useState(false);
   const [imgSrc, setImgSrc] = useState(product?.image || FALLBACK_IMAGE);
 
+  useEffect(() => {
+    if (product?.image) {
+      setImgSrc(product.image);
+    }
+  }, [product?.image]);
+
   if (!product) {
+    if (isLoading) {
+      return (
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <ProductDetailSkeleton />
+        </div>
+      );
+    }
+
     return (
       <div className="text-center py-20 bg-white rounded-2xl p-8 border border-gray-100 shadow-xs my-8">
         <h2 className="text-2xl font-bold text-gray-800">Product Not Found</h2>
@@ -63,10 +78,10 @@ export default function ProductDetailPage({ params }) {
 
   const isFavorited = isInWishlist(product.id);
   const price = product.price || 0;
-  const discountPrice = product.discountPrice || price;
-  const hasDiscount = discountPrice < price;
-  const discountAmount = price - discountPrice;
-  const discountPercent = hasDiscount ? Math.round((discountAmount / price) * 100) : 0;
+  const originalPrice = product.originalPrice && product.originalPrice > price ? product.originalPrice : (product.price && product.original_price && product.original_price > product.price ? product.original_price : 0);
+  const hasDiscount = originalPrice > price;
+  const discountAmount = hasDiscount ? originalPrice - price : 0;
+  const discountPercent = hasDiscount ? Math.round((discountAmount / originalPrice) * 100) : 0;
 
   const related = getRelatedProducts(product.id, product.subcategory, product.category, 4, products);
 
@@ -195,7 +210,7 @@ export default function ProductDetailPage({ params }) {
 
           {/* Pricing Box */}
           <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100 flex items-baseline gap-3">
-            <CountUpPrice targetPrice={discountPrice} originalPrice={price > discountPrice ? price : null} />
+            <CountUpPrice targetPrice={price} originalPrice={hasDiscount ? originalPrice : null} />
           </div>
 
           {/* Short Description */}

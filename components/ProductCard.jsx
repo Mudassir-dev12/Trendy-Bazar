@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { UilHeart, UilShoppingBag, UilCheck, UilEye } from "@iconscout/react-unicons";
@@ -21,11 +21,17 @@ export default function ProductCard({ product }) {
   const [imgSrc, setImgSrc] = useState(product?.image || FALLBACK_IMAGE);
   const prefersReducedMotion = useReducedMotion();
 
+  useEffect(() => {
+    if (product?.image) {
+      setImgSrc(product.image);
+    }
+  }, [product?.image]);
+
   if (!product) return null;
 
   const isFavorited = isInWishlist(product.id);
   const price = product.price || 0;
-  const discountPrice = product.discountPrice || price;
+  const originalPrice = product.originalPrice && product.originalPrice > price ? product.originalPrice : null;
 
   const handleAddToCart = (e) => {
     e.preventDefault();
@@ -135,7 +141,7 @@ export default function ProductCard({ product }) {
         {/* Price & Action Button */}
         <div className="pt-1.5 sm:pt-2 border-t border-gray-100 flex items-center justify-between gap-1.5 relative">
           <div className="min-w-0">
-            <CountUpPrice targetPrice={discountPrice} originalPrice={price > discountPrice ? price : null} />
+            <CountUpPrice targetPrice={price} originalPrice={originalPrice} />
           </div>
 
           <motion.button

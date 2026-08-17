@@ -3,9 +3,10 @@
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import ProductCard from "./ProductCard";
+import ProductCardSkeleton from "./ProductCardSkeleton";
 import { fadeUp } from "@/lib/motion";
 
-export default function ProductGrid({ products = [], title = "", subtitle = "", columns = "4" }) {
+export default function ProductGrid({ products = [], title = "", subtitle = "", columns = "4", isLoading = false }) {
   const prefersReducedMotion = useReducedMotion();
 
   const colClassMap = {
@@ -16,6 +17,8 @@ export default function ProductGrid({ products = [], title = "", subtitle = "", 
   };
 
   const gridCols = colClassMap[columns] || colClassMap["4"];
+
+  const skeletonCount = columns === "3" ? 6 : columns === "2" ? 4 : 8;
 
   return (
     <div className="w-full">
@@ -38,7 +41,13 @@ export default function ProductGrid({ products = [], title = "", subtitle = "", 
         </motion.div>
       )}
 
-      {products.length === 0 ? (
+      {isLoading ? (
+        <div className={`grid ${gridCols} gap-2.5 sm:gap-4 md:gap-6`}>
+          {[...Array(skeletonCount)].map((_, i) => (
+            <ProductCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : products.length === 0 ? (
         <div className="bg-white rounded-xl p-8 sm:p-12 text-center border border-gray-100 shadow-xs my-4">
           <div className="w-14 h-14 bg-orange-50 text-[#F58220] rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
             🔍

@@ -9,7 +9,7 @@ import { formatPrice } from "@/lib/data";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=800&auto=format&fit=crop&q=80";
 
-export default function FeaturedSplitSection({ products = [] }) {
+export default function FeaturedSplitSection({ products = [], isLoading = false }) {
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const [addedMap, setAddedMap] = useState({});
@@ -58,6 +58,31 @@ export default function FeaturedSplitSection({ products = [] }) {
     toggleWishlist(product);
   };
 
+  if (isLoading || !products || products.length === 0) {
+    return (
+      <section className="my-6 sm:my-8 animate-pulse">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div>
+            <div className="h-6 w-56 bg-gray-200 rounded-md mb-1" />
+            <div className="h-3.5 w-72 bg-gray-100 rounded-md" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+          <div className="lg:col-span-7 flex gap-3 overflow-hidden">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="w-[calc(50%-5px)] sm:w-56 shrink-0 bg-white rounded-2xl border border-gray-100 p-3 space-y-3">
+                <div className="w-full pt-[85%] bg-gray-200 rounded-xl" />
+                <div className="h-4 w-3/4 bg-gray-200 rounded-md" />
+                <div className="h-5 w-16 bg-gray-200 rounded-md" />
+              </div>
+            ))}
+          </div>
+          <div className="lg:col-span-5 bg-gray-200 rounded-2xl min-h-[260px]" />
+        </div>
+      </section>
+    );
+  }
+
   const tableProducts = products.slice(0, 6);
 
   return (
@@ -97,8 +122,8 @@ export default function FeaturedSplitSection({ products = [] }) {
               const isFavorited = isInWishlist(product.id);
               const isAdded = addedMap[product.id];
               const price = product.price || 0;
-              const discountPrice = product.discountPrice || price;
-              const hasDiscount = discountPrice < price;
+              const originalPrice = product.originalPrice && product.originalPrice > price ? product.originalPrice : null;
+              const hasDiscount = Boolean(originalPrice);
 
               return (
                 <div
@@ -131,13 +156,13 @@ export default function FeaturedSplitSection({ products = [] }) {
 
                   {/* Pricing & Add Button */}
                   <div>
-                    <div className="mb-1">
-                      <span className="text-sm sm:text-base font-black text-gray-900">
-                        {formatPrice(discountPrice)}
+                    <div className="mb-1" suppressHydrationWarning>
+                      <span className="text-sm sm:text-base font-black text-gray-900" suppressHydrationWarning>
+                        {formatPrice(price)}
                       </span>
                       {hasDiscount && (
-                        <p className="text-[10px] sm:text-[11px] text-gray-500 font-bold">
-                          <span className="line-through">{formatPrice(price)}</span>
+                        <p className="text-[10px] sm:text-[11px] text-gray-500 font-bold" suppressHydrationWarning>
+                          <span className="line-through">{formatPrice(originalPrice)}</span>
                         </p>
                       )}
                     </div>
@@ -145,6 +170,7 @@ export default function FeaturedSplitSection({ products = [] }) {
                     <Link
                       href={`/product/${product.id}`}
                       className="text-[11px] sm:text-xs font-semibold text-gray-800 line-clamp-2 leading-tight mb-2 sm:mb-3 block hover:text-[#F58220]"
+                      suppressHydrationWarning
                     >
                       {product.name}
                     </Link>

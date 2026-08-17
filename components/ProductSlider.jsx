@@ -9,13 +9,18 @@ import { formatPrice } from "@/lib/data";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80";
 
-export default function ProductSlider({ title, subtitle, products = [], viewAllLink = "/category/smart-gadgets" }) {
+export default function ProductSlider({ title, subtitle, products = [], viewAllLink = "/category/smart-gadgets", isLoading = false }) {
   const sliderRef = useRef(null);
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const [addedMap, setAddedMap] = useState({});
   const [imgSrcMap, setImgSrcMap] = useState({});
   const [isPaused, setIsPaused] = useState(false);
+
+  // Reset error image map when products update from database
+  useEffect(() => {
+    setImgSrcMap({});
+  }, [products]);
 
   // One by one item auto scroll effect from right to left
   useEffect(() => {
@@ -61,7 +66,39 @@ export default function ProductSlider({ title, subtitle, products = [], viewAllL
     toggleWishlist(product);
   };
 
-  if (!products || products.length === 0) return null;
+  if (isLoading || !products || products.length === 0) {
+    return (
+      <section className="my-6 sm:my-8 animate-pulse">
+        {/* Section Header Skeleton */}
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div>
+            <div className="h-6 w-48 bg-gray-200 rounded-md mb-1" />
+            {subtitle && <div className="h-3.5 w-64 bg-gray-100 rounded-md" />}
+          </div>
+        </div>
+
+        {/* Shimmer Cards Track */}
+        <div className="flex gap-2.5 sm:gap-4 overflow-hidden py-1">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <div
+              key={n}
+              className="w-[calc(50%-5px)] sm:w-60 md:w-64 shrink-0 bg-white rounded-2xl border border-gray-100 p-2.5 sm:p-3.5 space-y-3"
+            >
+              <div className="w-full pt-[85%] bg-gray-200 rounded-xl relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
+              </div>
+              <div className="h-4 w-3/4 bg-gray-200 rounded-md" />
+              <div className="h-3.5 w-1/2 bg-gray-100 rounded-md" />
+              <div className="pt-2 border-t border-gray-100 flex justify-between items-center">
+                <div className="h-5 w-16 bg-gray-200 rounded-md" />
+                <div className="h-7 w-14 bg-gray-200 rounded-lg" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="my-6 sm:my-8">
@@ -116,8 +153,8 @@ export default function ProductSlider({ title, subtitle, products = [], viewAllL
             const isFavorited = isInWishlist(product.id);
             const isAdded = addedMap[product.id];
             const price = product.price || 0;
-            const discountPrice = product.discountPrice || price;
-            const hasDiscount = discountPrice < price;
+            const originalPrice = product.originalPrice && product.originalPrice > price ? product.originalPrice : null;
+            const hasDiscount = Boolean(originalPrice);
             const imgSrc = imgSrcMap[product.id] || product.image || FALLBACK_IMAGE;
 
             return (
@@ -153,18 +190,18 @@ export default function ProductSlider({ title, subtitle, products = [], viewAllL
                 <div className="flex-1 flex flex-col justify-between">
                   <div>
                     {/* Price Display */}
-                    <div className="mb-1">
+                    <div className="mb-1" suppressHydrationWarning>
                       {hasDiscount ? (
-                        <div className="flex items-baseline gap-1.5 flex-wrap">
-                          <span className="text-sm sm:text-lg font-black text-gray-900">
-                            {formatPrice(discountPrice)}
-                          </span>
-                          <span className="text-[10px] sm:text-xs text-gray-400 line-through">
+                        <div className="flex items-baseline gap-1.5 flex-wrap" suppressHydrationWarning>
+                          <span className="text-sm sm:text-lg font-black text-gray-900" suppressHydrationWarning>
                             {formatPrice(price)}
+                          </span>
+                          <span className="text-[10px] sm:text-xs text-gray-400 line-through" suppressHydrationWarning>
+                            {formatPrice(originalPrice)}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-sm sm:text-lg font-black text-gray-900">
+                        <span className="text-sm sm:text-lg font-black text-gray-900" suppressHydrationWarning>
                           {formatPrice(price)}
                         </span>
                       )}
@@ -173,6 +210,7 @@ export default function ProductSlider({ title, subtitle, products = [], viewAllL
                     <Link
                       href={`/product/${product.id}`}
                       className="text-[11px] sm:text-sm font-semibold text-gray-800 hover:text-[#F58220] line-clamp-2 leading-tight mb-2 sm:mb-3 block"
+                      suppressHydrationWarning
                     >
                       {product.name}
                     </Link>

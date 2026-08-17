@@ -6,22 +6,25 @@ import { formatPrice } from "@/lib/data";
 
 export default function CountUpPrice({ targetPrice, originalPrice, duration = 600, className = "" }) {
   const prefersReducedMotion = useReducedMotion();
-  const [currentValue, setCurrentValue] = useState(originalPrice && originalPrice > targetPrice ? originalPrice : targetPrice);
+  const numTarget = Math.round(Number(targetPrice) || 0);
+  const numOriginal = originalPrice ? Math.round(Number(originalPrice)) : 0;
+  const hasDiscount = numOriginal > numTarget;
+
+  const [currentValue, setCurrentValue] = useState(numTarget);
 
   useEffect(() => {
-    if (prefersReducedMotion || !originalPrice || originalPrice <= targetPrice) {
-      setCurrentValue(targetPrice);
+    if (prefersReducedMotion || !hasDiscount) {
+      setCurrentValue(numTarget);
       return;
     }
 
-    const startValue = originalPrice;
-    const endValue = targetPrice;
+    const startValue = numOriginal;
+    const endValue = numTarget;
     const startTime = performance.now();
 
     const animateCount = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Ease out quad
       const easedProgress = 1 - (1 - progress) * (1 - progress);
       const val = Math.round(startValue + (endValue - startValue) * easedProgress);
 
@@ -34,27 +37,19 @@ export default function CountUpPrice({ targetPrice, originalPrice, duration = 60
 
     const animId = requestAnimationFrame(animateCount);
     return () => cancelAnimationFrame(animId);
-  }, [targetPrice, originalPrice, duration, prefersReducedMotion]);
-
-  const hasDiscount = originalPrice && originalPrice > targetPrice;
+  }, [numTarget, numOriginal, duration, prefersReducedMotion, hasDiscount]);
 
   return (
-    <div className={`flex items-baseline gap-2 flex-wrap ${className}`}>
-      {/* Animated Sale Price */}
-      <span className="text-lg font-black text-gray-900">
+    <div className={`flex items-baseline gap-2 flex-wrap ${className}`} suppressHydrationWarning>
+      {/* Active Price */}
+      <span className="text-lg font-black text-gray-900" suppressHydrationWarning>
         {formatPrice(currentValue)}
       </span>
 
-      {/* Strikethrough Original Price with Animated Line */}
+      {/* Strikethrough Original Price */}
       {hasDiscount && (
-        <span className="relative text-xs text-gray-400 font-normal inline-block">
-          {formatPrice(originalPrice)}
-          <motion.span
-            initial={{ scaleX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
-            className="absolute left-0 top-1/2 w-full h-[1.5px] bg-gray-400 origin-left"
-          />
+        <span className="text-xs text-gray-400 font-normal line-through" suppressHydrationWarning>
+          {formatPrice(numOriginal)}
         </span>
       )}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useProducts } from "@/context/ProductContext";
@@ -11,15 +11,23 @@ import PromoGrid from "@/components/PromoGrid";
 import FeaturedSplitSection from "@/components/FeaturedSplitSection";
 import FlashDeals from "@/components/FlashDeals";
 import ProductGrid from "@/components/ProductGrid";
+import Pagination from "@/components/Pagination";
 import { ScrollReveal } from "@/components/AnimatedComponents";
 import { getFeaturedProducts } from "@/lib/data";
 import { buttonPressProps } from "@/lib/motion";
 import { ArrowRight, Award, Star } from "lucide-react";
 
 export default function HomePage() {
-  const { products, isLoaded } = useProducts();
+  const { products, isLoading } = useProducts();
+  const [topPickPage, setTopPickPage] = useState(1);
+  const topPicksPerPage = 12;
 
-  const featured = getFeaturedProducts(16, products);
+  const featured = getFeaturedProducts(100, products);
+  const totalTopPickPages = Math.ceil(featured.length / topPicksPerPage) || 1;
+  const paginatedTopPicks = featured.slice(
+    (topPickPage - 1) * topPicksPerPage,
+    topPickPage * topPicksPerPage
+  );
 
   // Products tailored for home page sliders
   const greatBrandsProducts = products.slice(0, 8).map((p, idx) => ({
@@ -31,15 +39,6 @@ export default function HomePage() {
     ...p,
     hasOptions: idx % 2 === 0
   }));
-
-  if (!isLoaded) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-12 h-12 border-4 border-[#F58220] border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-gray-500 font-medium text-sm">Loading Trendy Bazaar...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12 overflow-x-hidden">
@@ -60,6 +59,7 @@ export default function HomePage() {
             title="Discover Great Brands"
             subtitle="Top rated tech, smart wearables, fast chargers & gadgets"
             products={greatBrandsProducts}
+            isLoading={isLoading}
             viewAllLink="/category/smart-gadgets"
           />
         </ScrollReveal>
@@ -71,7 +71,10 @@ export default function HomePage() {
 
         {/* 5. Kitchen & Home Essentials Split Section */}
         <ScrollReveal direction="up" delay={140}>
-          <FeaturedSplitSection products={products.filter((p) => p.category === "home-essentials")} />
+          <FeaturedSplitSection
+            products={products.filter((p) => p.category === "home-essentials")}
+            isLoading={isLoading}
+          />
         </ScrollReveal>
 
         {/* 6. Save on Tech, Appliances & Home Slider */}
@@ -80,6 +83,7 @@ export default function HomePage() {
             title="Save on Tech, Appliances & Home"
             subtitle="Massive direct bazaar prices on vacuum cleaners, air coolers & home gadgets"
             products={techAndHomeProducts}
+            isLoading={isLoading}
             viewAllLink="/category/home-appliances"
           />
         </ScrollReveal>
@@ -135,7 +139,20 @@ export default function HomePage() {
               </div>
             </div>
 
-            <ProductGrid products={featured.slice(0, 16)} columns="4" />
+            <ProductGrid products={paginatedTopPicks} columns="4" isLoading={isLoading && paginatedTopPicks.length === 0} />
+
+            {featured.length > topPicksPerPage && (
+              <div className="mt-8 bg-white rounded-2xl p-4 border border-gray-100 shadow-xs">
+                <Pagination
+                  currentPage={topPickPage}
+                  totalPages={totalTopPickPages}
+                  totalItems={featured.length}
+                  itemsPerPage={topPicksPerPage}
+                  onPageChange={setTopPickPage}
+                  className="py-0"
+                />
+              </div>
+            )}
           </section>
         </ScrollReveal>
 

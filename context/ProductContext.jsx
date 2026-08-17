@@ -9,97 +9,114 @@ import {
   saveOrdersList,
   resetProductsToDefault
 } from "@/lib/data";
+import { initialProducts } from "@/data/products";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const ProductContext = createContext();
 
 export function ProductProvider({ children }) {
-  const [products, setProducts] = useState([]);
+  // If Supabase is configured, start empty so skeletons display during fetch (no random seed images)
+  const [products, setProducts] = useState(() => (isSupabaseConfigured ? [] : initialProducts));
   const [orders, setOrders] = useState([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
+  const [isLoaded, setIsLoaded] = useState(!isSupabaseConfigured);
 
-  // Initialize data on client side (Syncing with Supabase if credentials provided)
+  // Background sync with Supabase
   useEffect(() => {
-    async function loadData() {
-      if (isSupabaseConfigured) {
-        try {
-          // Fetch real products from Supabase
-          const { data: sbProducts, error: prodErr } = await supabase
-            .from("products")
-            .select("*")
-            .order("created_at", { ascending: false });
+    async function syncProductsFromSupabase() {
+      if (!isSupabaseConfigured) return;
+      try {
+        const { data: sbProducts, error: prodErr } = await supabase
+          .from("products")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-          if (!prodErr && Array.isArray(sbProducts)) {
-            const dynamicProducts = sbProducts.map((p) => {
-              const imgList = p.image ? p.image.split("|||") : [];
-              const primaryImg = imgList[0] || p.image || "";
-              const allImgs = imgList.length > 0 ? imgList : [primaryImg];
+        if (!prodErr && Array.isArray(sbProducts) && sbProducts.length > 0) {
+          const dynamicProducts = sbProducts.map((p) => {
+            const imgList = p.image ? p.image.split("|||") : [];
+            const primaryImg = imgList[0] || p.image || "";
+            const allImgs = imgList.length > 0 ? imgList : [primaryImg];
+            const finalPrice = parseFloat(p.price) || 0;
+            const rawOrigPrice = p.original_price ? parseFloat(p.original_price) : 0;
+            const originalPrice = rawOrigPrice > finalPrice ? rawOrigPrice : (finalPrice > 0 ? Math.round(finalPrice * 1.25) : 0);
+            const discount = originalPrice > finalPrice ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100) : 0;
 
-              return {
-                id: p.id,
-                name: p.title,
-                title: p.title,
-                slug: p.slug || p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-                category: p.category,
-                subcategory: p.subcategory || "",
-                price: parseFloat(p.price) || 0,
-                originalPrice: p.original_price ? parseFloat(p.original_price) : parseFloat(p.price) * 1.2,
-                discountPrice: parseFloat(p.price) || 0,
-                discount: p.discount || 0,
-                rating: parseFloat(p.rating) || 4.5,
-                reviewCount: p.reviews_count || 12,
-                image: primaryImg,
-                images: allImgs,
-                description: p.description || "",
-                stock: p.stock || 50,
-                isFeatured: p.is_featured || false,
-                badge: p.badge || ""
-              };
-            });
-            setProducts(dynamicProducts);
-          }
+            return {
+              id: p.id,
+              name: p.title,
+              title: p.title,
+              slug: p.slug || p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+              category: p.category,
+              subcategory: p.subcategory || "",
+              price: finalPrice,
+              originalPrice: originalPrice,
+              discountPrice: finalPrice,
+              discount: discount,
+              rating: parseFloat(p.rating) || 4.8,
+              reviewCount: p.reviews_count || 12,
+              image: primaryImg,
+              images: allImgs,
+              description: p.description || "",
+              stock: p.stock || 50,
+              isFeatured: p.is_featured || false,
+              badge: p.badge || (discount >= 15 ? `${discount}% OFF` : "")
+            };
+          });
 
-          // Fetch real orders from Supabase
-          const { data: sbOrders, error: orderErr } = await supabase
-            .from("orders")
-            .select("*, order_items(*)")
-            .order("created_at", { ascending: false });
-
-          if (!orderErr && Array.isArray(sbOrders)) {
-            const dynamicOrders = sbOrders.map((o) => ({
-              id: o.order_number || o.id,
-              date: o.created_at,
-              customerName: o.customer_name,
-              customerEmail: o.customer_email,
-              customerPhone: o.customer_phone,
-              shippingAddress: o.shipping_address,
-              city: o.city,
-              paymentMethod: o.payment_method,
-              totalAmount: parseFloat(o.total_amount),
-              status: o.status,
-              customer: {
-                name: o.customer_name,
-                email: o.customer_email,
-                phone: o.customer_phone,
-                address: o.shipping_address,
-                city: o.city
-              },
-              items: o.order_items || []
-            }));
-            setOrders(dynamicOrders);
-          }
-        } catch (err) {
-          console.warn("Supabase fetch failed, using local store fallback:", err);
+          setProducts(dynamicProducts);
+          saveProducts(dynamicProducts);
+        } else if (!prodErr && Array.isArray(sbProducts) && sbProducts.length === 0) {
+          // If Supabase table is empty, fallback to seed
+          setProducts(initialProducts);
         }
-      } else {
+      } catch (err) {
+        console.warn("Supabase products sync failed:", err);
         setProducts(getProducts());
-        setOrders(getOrders());
+      } finally {
+        setIsLoading(false);
+        setIsLoaded(true);
       }
-
-      setIsLoaded(true);
     }
 
-    loadData();
+    async function syncOrdersFromSupabase() {
+      if (!isSupabaseConfigured) return;
+      try {
+        const { data: sbOrders, error: orderErr } = await supabase
+          .from("orders")
+          .select("*, order_items(*)")
+          .order("created_at", { ascending: false });
+
+        if (!orderErr && Array.isArray(sbOrders)) {
+          const dynamicOrders = sbOrders.map((o) => ({
+            id: o.order_number || o.id,
+            date: o.created_at,
+            customerName: o.customer_name,
+            customerEmail: o.customer_email,
+            customerPhone: o.customer_phone,
+            shippingAddress: o.shipping_address,
+            city: o.city,
+            paymentMethod: o.payment_method,
+            totalAmount: parseFloat(o.total_amount),
+            status: o.status,
+            customer: {
+              name: o.customer_name,
+              email: o.customer_email,
+              phone: o.customer_phone,
+              address: o.shipping_address,
+              city: o.city
+            },
+            items: o.order_items || []
+          }));
+          setOrders(dynamicOrders);
+          saveOrdersList(dynamicOrders);
+        }
+      } catch (err) {
+        console.warn("Supabase orders sync failed:", err);
+      }
+    }
+
+    syncProductsFromSupabase();
+    syncOrdersFromSupabase();
 
     // Supabase Realtime channel subscription for multi-device live sync
     let prodChannel;
@@ -136,7 +153,8 @@ export function ProductProvider({ children }) {
   const addProduct = async (productData) => {
     const slug = productData.slug || (productData.name || productData.title).toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const priceVal = parseFloat(productData.price) || 0;
-    const discountPriceVal = productData.discountPrice ? parseFloat(productData.discountPrice) : priceVal;
+    const origPriceVal = productData.originalPrice ? parseFloat(productData.originalPrice) : (priceVal > 0 ? Math.round(priceVal * 1.25) : 0);
+    const discountVal = origPriceVal > priceVal ? Math.round(((origPriceVal - priceVal) / origPriceVal) * 100) : 0;
     const rawImages = Array.isArray(productData.images) && productData.images.length > 0
       ? productData.images
       : (productData.image ? [productData.image] : []);
@@ -150,8 +168,9 @@ export function ProductProvider({ children }) {
       title: productData.name || productData.title,
       slug,
       price: priceVal,
-      originalPrice: productData.originalPrice ? parseFloat(productData.originalPrice) : priceVal * 1.2,
-      discountPrice: discountPriceVal,
+      originalPrice: origPriceVal,
+      discountPrice: priceVal,
+      discount: discountVal,
       stock: parseInt(productData.stock, 10) || 0,
       rating: parseFloat(productData.rating) || 4.8,
       reviewCount: parseInt(productData.reviewCount, 10) || 12,
@@ -159,7 +178,7 @@ export function ProductProvider({ children }) {
       images: rawImages.length > 0 ? rawImages : [primaryImg],
       isFlashDeal: Boolean(productData.isFlashDeal),
       isFeatured: Boolean(productData.isFeatured),
-      badge: productData.badge || "",
+      badge: productData.badge || (discountVal >= 15 ? `${discountVal}% OFF` : ""),
       tags: Array.isArray(productData.tags) ? productData.tags : (productData.tags ? productData.tags.split(",").map(t => t.trim()) : ["New"])
     };
 
@@ -213,6 +232,10 @@ export function ProductProvider({ children }) {
 
     const updated = products.map((p) => {
       if (String(p.id) === String(id) || (p.slug && p.slug === updatedFields.slug)) {
+        const priceVal = updatedFields.price !== undefined ? parseFloat(updatedFields.price) : p.price;
+        const origPriceVal = updatedFields.originalPrice !== undefined ? parseFloat(updatedFields.originalPrice) : (p.originalPrice || priceVal * 1.25);
+        const discountVal = origPriceVal > priceVal ? Math.round(((origPriceVal - priceVal) / origPriceVal) * 100) : 0;
+
         return {
           ...p,
           ...updatedFields,
@@ -220,13 +243,14 @@ export function ProductProvider({ children }) {
           title: updatedFields.name || updatedFields.title || p.title,
           image: primaryImg || p.image,
           images: rawImages.length > 0 ? rawImages : (p.images || [p.image]),
-          price: updatedFields.price !== undefined ? parseFloat(updatedFields.price) : p.price,
-          originalPrice: updatedFields.originalPrice !== undefined ? parseFloat(updatedFields.originalPrice) : p.originalPrice,
-          discountPrice: updatedFields.discountPrice !== undefined ? parseFloat(updatedFields.discountPrice) : p.discountPrice,
+          price: priceVal,
+          originalPrice: origPriceVal,
+          discountPrice: priceVal,
+          discount: discountVal,
           stock: updatedFields.stock !== undefined ? parseInt(updatedFields.stock, 10) : p.stock,
           rating: updatedFields.rating !== undefined ? parseFloat(updatedFields.rating) : p.rating,
           reviewCount: updatedFields.reviewCount !== undefined ? parseInt(updatedFields.reviewCount, 10) : p.reviewCount,
-          badge: updatedFields.badge !== undefined ? updatedFields.badge : p.badge,
+          badge: updatedFields.badge !== undefined ? updatedFields.badge : (discountVal >= 15 ? `${discountVal}% OFF` : p.badge),
           isFeatured: updatedFields.isFeatured !== undefined ? Boolean(updatedFields.isFeatured) : p.isFeatured,
           isFlashDeal: updatedFields.isFlashDeal !== undefined ? Boolean(updatedFields.isFlashDeal) : p.isFlashDeal
         };
@@ -237,13 +261,18 @@ export function ProductProvider({ children }) {
 
     if (isSupabaseConfigured) {
       try {
+        const targetP = products.find((p) => String(p.id) === String(id) || (p.slug && p.slug === updatedFields.slug));
+        const priceVal = updatedFields.price !== undefined ? parseFloat(updatedFields.price) : (targetP?.price || 0);
+        const origPriceVal = updatedFields.originalPrice !== undefined ? parseFloat(updatedFields.originalPrice) : targetP?.originalPrice;
+        const discountVal = origPriceVal && origPriceVal > priceVal ? Math.round(((origPriceVal - priceVal) / origPriceVal) * 100) : (updatedFields.discount !== undefined ? parseInt(updatedFields.discount, 10) : 0);
+
         const updatePayload = {
           title: updatedFields.name || updatedFields.title,
           category: updatedFields.category,
           subcategory: updatedFields.subcategory,
           price: updatedFields.price !== undefined ? parseFloat(updatedFields.price) : undefined,
           original_price: updatedFields.originalPrice !== undefined ? parseFloat(updatedFields.originalPrice) : undefined,
-          discount: updatedFields.discount !== undefined ? parseInt(updatedFields.discount, 10) : undefined,
+          discount: discountVal,
           rating: updatedFields.rating !== undefined ? parseFloat(updatedFields.rating) : undefined,
           reviews_count: updatedFields.reviewCount !== undefined ? parseInt(updatedFields.reviewCount, 10) : undefined,
           stock: updatedFields.stock !== undefined ? parseInt(updatedFields.stock, 10) : undefined,
@@ -372,6 +401,10 @@ export function ProductProvider({ children }) {
         const imgList = p.image ? p.image.split("|||") : [];
         const primaryImg = imgList[0] || p.image || "";
         const allImgs = imgList.length > 0 ? imgList : [primaryImg];
+        const finalPrice = parseFloat(p.price) || 0;
+        const rawOrigPrice = p.original_price ? parseFloat(p.original_price) : 0;
+        const originalPrice = rawOrigPrice > finalPrice ? rawOrigPrice : (finalPrice > 0 ? Math.round(finalPrice * 1.25) : 0);
+        const discount = originalPrice > finalPrice ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100) : 0;
 
         return {
           id: p.id,
@@ -380,10 +413,10 @@ export function ProductProvider({ children }) {
           slug: p.slug || p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
           category: p.category,
           subcategory: p.subcategory || "",
-          price: parseFloat(p.price) || 0,
-          originalPrice: p.original_price ? parseFloat(p.original_price) : parseFloat(p.price) * 1.2,
-          discountPrice: parseFloat(p.price) || 0,
-          discount: p.discount || 0,
+          price: finalPrice,
+          originalPrice: originalPrice,
+          discountPrice: finalPrice,
+          discount: discount,
           rating: parseFloat(p.rating) || 4.8,
           reviewCount: p.reviews_count || 12,
           image: primaryImg,
@@ -391,7 +424,7 @@ export function ProductProvider({ children }) {
           description: p.description || "",
           stock: p.stock || 50,
           isFeatured: p.is_featured || false,
-          badge: p.badge || ""
+          badge: p.badge || (discount >= 15 ? `${discount}% OFF` : "")
         };
       });
       setProducts(remapped);
@@ -531,6 +564,7 @@ export function ProductProvider({ children }) {
       value={{
         products,
         orders,
+        isLoading,
         isLoaded,
         addProduct,
         editProduct,

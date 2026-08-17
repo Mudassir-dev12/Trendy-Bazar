@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import FilterSidebar from "@/components/FilterSidebar";
 import ProductGrid from "@/components/ProductGrid";
+import Pagination from "@/components/Pagination";
 import { useProducts } from "@/context/ProductContext";
 import { getCategoryBySlug, filterProducts } from "@/lib/data";
 
@@ -12,19 +13,21 @@ function CategoryContent({ slug }) {
   const searchParams = useSearchParams();
   const subQuery = searchParams.get("sub") || "";
 
-  const { products } = useProducts();
+  const { products, isLoading } = useProducts();
   const category = getCategoryBySlug(slug);
 
   const [selectedSubcategory, setSelectedSubcategory] = useState(subQuery);
   const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(500);
+  const [maxPrice, setMaxPrice] = useState(200000);
   const [minRating, setMinRating] = useState(0);
   const [sortBy, setSortBy] = useState("popular");
-  const [displayCount, setDisplayCount] = useState(12);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 12;
 
   React.useEffect(() => {
     if (subQuery) {
       setSelectedSubcategory(subQuery);
+      setPage(1);
     }
   }, [subQuery]);
 
@@ -47,15 +50,16 @@ function CategoryContent({ slug }) {
     sortBy
   });
 
-  const visibleProducts = filtered.slice(0, displayCount);
+  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
+  const visibleProducts = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   const handleResetFilters = () => {
     setSelectedSubcategory("");
     setMinPrice(0);
-    setMaxPrice(500);
+    setMaxPrice(200000);
     setMinRating(0);
     setSortBy("popular");
-    setDisplayCount(12);
+    setPage(1);
   };
 
   return (
@@ -118,17 +122,20 @@ function CategoryContent({ slug }) {
 
         {/* Product Grid Area */}
         <div className="flex-1 w-full">
-          <ProductGrid products={visibleProducts} columns="3" />
+          <ProductGrid products={visibleProducts} columns="3" isLoading={isLoading && visibleProducts.length === 0} />
 
-          {/* Load More Button */}
-          {displayCount < filtered.length && (
-            <div className="text-center mt-8">
-              <button
-                onClick={() => setDisplayCount((prev) => prev + 12)}
-                className="bg-[#F58220] hover:bg-[#E06D0F] text-white px-8 py-3 rounded-xl font-bold text-sm shadow-md transition-all duration-200"
-              >
-                Load More Products ({filtered.length - displayCount} remaining)
-              </button>
+          {/* Pagination Controls */}
+          {filtered.length > itemsPerPage && (
+            <div className="mt-8 bg-white rounded-2xl p-4 border border-gray-100 shadow-xs">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                totalItems={filtered.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setPage}
+                scrollToTop={true}
+                className="py-0"
+              />
             </div>
           )}
         </div>

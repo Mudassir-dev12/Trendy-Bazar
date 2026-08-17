@@ -1,38 +1,292 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   UilShoppingBag,
   UilHeart,
-  UilShield,
-  UilBars,
+  UilSearch,
   UilTimes,
+  UilBars,
   UilPhone,
   UilAngleDown,
-  UilAngleUp
+  UilAngleUp,
+  UilArrowRight,
+  UilFire,
+  UilTagAlt
 } from "@iconscout/react-unicons";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { useProducts } from "@/context/ProductContext";
+import { formatPrice } from "@/lib/data";
 import { slideInLeft, buttonPressProps } from "@/lib/motion";
 import { categories } from "@/data/categories";
 
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80";
+
+const TRENDING_KEYWORDS = [
+  "Wireless Earbuds",
+  "Fast Charger",
+  "Cookware Set",
+  "Tissue Box Holder",
+  "Massage Device",
+  "Smart Clock"
+];
+
 export default function Header() {
+  const router = useRouter();
   const { totalItems, setIsCartOpen } = useCart();
   const { wishlistCount } = useWishlist();
+  const { products } = useProducts();
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [expandedCat, setExpandedCat] = useState("smart-gadgets");
   const [mounted, setMounted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  const searchContainerRef = useRef(null);
+  const mobileSearchRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Auto-focus mobile search input when opened
+  useEffect(() => {
+    if (isMobileSearchOpen && mobileSearchInputRef.current) {
+      setTimeout(() => mobileSearchInputRef.current?.focus(), 100);
+    }
+  }, [isMobileSearchOpen]);
+
+  // Click outside listener to dismiss search dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const isInsideDesktop = searchContainerRef.current && searchContainerRef.current.contains(e.target);
+      const isInsideMobile = mobileSearchRef.current && mobileSearchRef.current.contains(e.target);
+      if (!isInsideDesktop && !isInsideMobile) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const cleanQuery = searchQuery.trim().toLowerCase();
+
+  // Dynamic live search results from active product catalog
+  const liveResults = cleanQuery
+    ? products
+        .filter((p) => {
+          const name = (p.name || p.title || "").toLowerCase();
+          const cat = (p.category || "").toLowerCase();
+          const sub = (p.subcategory || "").toLowerCase();
+          const desc = (p.description || "").toLowerCase();
+          const tags = Array.isArray(p.tags) ? p.tags.join(" ").toLowerCase() : "";
+          return (
+            name.includes(cleanQuery) ||
+            cat.includes(cleanQuery) ||
+            sub.includes(cleanQuery) ||
+            desc.includes(cleanQuery) ||
+            tags.includes(cleanQuery)
+          );
+        })
+        .slice(0, 5)
+    : [];
+
+  // Matching categories / subcategories
+  const matchedCategories = cleanQuery
+    ? categories
+        .filter(
+          (c) =>
+            c.name.toLowerCase().includes(cleanQuery) ||
+            c.subcategories?.some((s) => s.name.toLowerCase().includes(cleanQuery))
+        )
+        .slice(0, 2)
+    : [];
+
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!searchQuery.trim()) return;
+    setIsSearchFocused(false);
+    setIsMobileSearchOpen(false);
+    router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+  };
+
+  const handleSelectProduct = (productId) => {
+    setIsSearchFocused(false);
+    setIsMobileSearchOpen(false);
+    setSearchQuery("");
+    router.push(`/product/${productId}`);
+  };
+
+  const handleSelectKeyword = (kw) => {
+    setSearchQuery(kw);
+    setIsSearchFocused(false);
+    setIsMobileSearchOpen(false);
+    router.push(`/search?q=${encodeURIComponent(kw)}`);
+  };
+
   const toggleCategoryExpand = (catSlug) => {
     setExpandedCat((prev) => (prev === catSlug ? null : catSlug));
   };
+
+  const renderDropdownContent = () => (
+    <motion.div
+      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
+      animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+      exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+      className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100 p-3.5 z-50 max-h-[75vh] overflow-y-auto custom-scrollbar"
+    >
+      {/* 1. Empty State: Trending Search Suggestions */}
+      {!cleanQuery && (
+        <div className="space-y-3 p-1">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+            <UilFire size={15} className="text-[#F58220]" />
+            <span>Trending Popular Searches</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {TRENDING_KEYWORDS.map((kw, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleSelectKeyword(kw)}
+                className="bg-gray-100 hover:bg-orange-50 hover:text-[#F58220] text-gray-700 font-semibold text-xs px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <UilSearch size={12} className="text-gray-400" />
+                {kw}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 2. Matched Categories Quick Jump */}
+      {cleanQuery && matchedCategories.length > 0 && (
+        <div className="mb-3 pb-2.5 border-b border-gray-100">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1.5">
+            Matching Categories
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {matchedCategories.map((c) => (
+              <Link
+                key={c.id}
+                href={`/category/${c.slug}`}
+                onClick={() => {
+                  setIsSearchFocused(false);
+                  setIsMobileSearchOpen(false);
+                }}
+                className="bg-orange-50 hover:bg-orange-100 text-[#F58220] font-bold text-xs px-3 py-1 rounded-lg flex items-center gap-1 transition-colors"
+              >
+                <UilTagAlt size={12} />
+                {c.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Live Matching Products */}
+      {cleanQuery && liveResults.length > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between px-1 mb-1 text-[11px] font-bold text-gray-400 uppercase">
+            <span>Products ({liveResults.length})</span>
+            <span className="text-[#F58220] font-normal lowercase">click to view</span>
+          </div>
+
+          {liveResults.map((p) => {
+            const price = p.price || 0;
+            const origPrice = p.originalPrice && p.originalPrice > price ? p.originalPrice : null;
+            const discountPct = origPrice ? Math.round(((origPrice - price) / origPrice) * 100) : 0;
+
+            return (
+              <div
+                key={p.id}
+                onClick={() => handleSelectProduct(p.id)}
+                className="p-2 rounded-xl hover:bg-orange-50/70 transition-all flex items-center gap-3 cursor-pointer group"
+              >
+                <img
+                  src={p.image || FALLBACK_IMAGE}
+                  alt={p.name}
+                  onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
+                  className="w-12 h-12 object-cover rounded-lg border border-gray-100 bg-gray-50 shrink-0 group-hover:scale-105 transition-transform"
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-xs text-gray-900 truncate group-hover:text-[#F58220] transition-colors">
+                    {p.name}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[10px] text-gray-400 capitalize truncate">
+                      {p.subcategory?.replace(/-/g, " ") || p.category?.replace(/-/g, " ")}
+                    </span>
+                    {discountPct > 0 && (
+                      <span className="bg-green-100 text-green-800 text-[9px] font-black px-1.5 rounded-xs">
+                        {discountPct}% OFF
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="font-extrabold text-xs text-gray-900 block">
+                    {formatPrice(price)}
+                  </span>
+                  {origPrice && (
+                    <span className="text-[10px] text-gray-400 line-through block">
+                      {formatPrice(origPrice)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* View All Search Results Button */}
+          <button
+            type="button"
+            onClick={handleSearchSubmit}
+            className="w-full mt-2 pt-2.5 border-t border-gray-100 bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 text-[#F58220] p-2.5 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+          >
+            <span>View all search results for &ldquo;{searchQuery}&rdquo;</span>
+            <UilArrowRight size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* 4. No Results Found State */}
+      {cleanQuery && liveResults.length === 0 && (
+        <div className="py-6 text-center space-y-2">
+          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto text-gray-400">
+            <UilSearch size={20} />
+          </div>
+          <p className="text-xs font-bold text-gray-700">
+            No products found for &ldquo;{searchQuery}&rdquo;
+          </p>
+          <p className="text-[11px] text-gray-400 max-w-xs mx-auto">
+            Try checking for spelling mistakes, using broader terms, or click a popular keyword below.
+          </p>
+          <div className="flex flex-wrap justify-center gap-1.5 pt-2">
+            {TRENDING_KEYWORDS.slice(0, 4).map((kw, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => handleSelectKeyword(kw)}
+                className="bg-gray-50 hover:bg-orange-50 hover:text-[#F58220] text-gray-600 text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-gray-200 transition-colors cursor-pointer"
+              >
+                {kw}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-xs">
@@ -55,11 +309,11 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Main Sticky Header */}
+      {/* Main Sticky Header Row */}
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3">
-        <div className="flex items-center justify-between gap-1.5 sm:gap-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
           {/* Mobile Hamburger & Logo Container */}
-          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <motion.button
               {...buttonPressProps}
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -92,7 +346,7 @@ export default function Header() {
             </motion.button>
 
             {/* Brand Logo */}
-            <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink min-w-0">
+            <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
               <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 bg-[#F58220] rounded-xl p-1 shadow-md flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shrink-0">
                 <img
                   src="/logo.png"
@@ -101,28 +355,89 @@ export default function Header() {
                   suppressHydrationWarning
                 />
               </div>
-              <div className="flex flex-col truncate">
-                <span className="font-black text-sm sm:text-lg md:text-2xl text-gray-900 tracking-tight leading-none group-hover:text-[#F58220] transition-colors truncate">
+              <div className="flex flex-col">
+                <span className="font-black text-sm sm:text-lg md:text-2xl text-gray-900 tracking-tight leading-none group-hover:text-[#F58220] transition-colors">
                   TRENDY <span className="text-[#F58220]">BAZAAR</span>
                 </span>
-                <span className="hidden sm:block text-[9px] md:text-[10px] font-bold text-gray-400 tracking-wider uppercase mt-0.5 truncate">
+                <span className="hidden sm:block text-[9px] md:text-[10px] font-bold text-gray-400 tracking-wider uppercase mt-0.5">
                   Catch the Trend, Love the Price
                 </span>
               </div>
             </Link>
           </div>
 
-          {/* User Action Buttons (Wishlist, Cart) */}
-          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+          {/* DESKTOP / TABLET DYNAMIC SEARCH BAR WITH INSTANT LIVE RESULTS */}
+          <div ref={searchContainerRef} className="hidden md:block flex-1 max-w-xl mx-3 sm:mx-6 relative">
+            <form onSubmit={handleSearchSubmit} className="relative">
+              <div className="relative flex items-center">
+                <UilSearch size={18} className="text-gray-400 absolute left-3.5 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search products, categories, deals..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  className="w-full bg-gray-50 hover:bg-gray-100/80 focus:bg-white border-2 border-gray-200 focus:border-[#F58220] rounded-full pl-10 pr-28 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all shadow-2xs focus:shadow-md outline-hidden text-gray-900"
+                />
+
+                {/* Clear Input Button */}
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      searchInputRef.current?.focus();
+                    }}
+                    className="absolute right-22 text-gray-400 hover:text-gray-600 p-1 cursor-pointer"
+                    title="Clear search"
+                  >
+                    <UilTimes size={16} />
+                  </button>
+                )}
+
+                {/* Dynamic Search Action Button */}
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.96 }}
+                  className="absolute right-1 bg-[#F58220] hover:bg-[#E06D0F] text-white px-4 py-1.5 sm:py-2 rounded-full font-bold text-xs shadow-xs hover:shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <UilSearch size={14} />
+                  <span>Search</span>
+                </motion.button>
+              </div>
+            </form>
+
+            {/* Live Autocomplete Suggestions Dropdown */}
+            <AnimatePresence>
+              {isSearchFocused && renderDropdownContent()}
+            </AnimatePresence>
+          </div>
+
+          {/* User Action Buttons (Mobile Search Toggle, Wishlist, Cart) */}
+          <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+            {/* Mobile Search Toggle Button */}
+            <motion.button
+              {...buttonPressProps}
+              onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)}
+              className={`md:hidden p-2 rounded-full transition-colors ${
+                isMobileSearchOpen ? "bg-orange-100 text-[#F58220]" : "text-gray-600 hover:text-[#F58220] hover:bg-orange-50"
+              }`}
+              aria-label="Search Products"
+            >
+              <UilSearch size={20} />
+            </motion.button>
+
             {/* Wishlist Link */}
             <Link
               href="/wishlist"
-              className="p-1.5 text-gray-600 hover:text-[#F58220] hover:bg-orange-50 rounded-full transition-colors relative"
+              className="p-2 text-gray-600 hover:text-[#F58220] hover:bg-orange-50 rounded-full transition-colors relative"
               aria-label="Wishlist"
             >
-              <UilHeart size={19} />
+              <UilHeart size={20} />
               {mounted && wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+                <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
                   {wishlistCount}
                 </span>
               )}
@@ -136,7 +451,7 @@ export default function Header() {
               aria-label="Shopping Cart"
             >
               <div className="relative">
-                <UilShoppingBag size={19} />
+                <UilShoppingBag size={20} />
                 {mounted && totalItems > 0 && (
                   <AnimatePresence mode="wait">
                     <motion.span
@@ -157,6 +472,60 @@ export default function Header() {
             </motion.button>
           </div>
         </div>
+
+        {/* MOBILE DYNAMIC EXPANDABLE SEARCH BAR */}
+        <AnimatePresence>
+          {isMobileSearchOpen && (
+            <motion.div
+              ref={mobileSearchRef}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden overflow-visible pt-2 relative"
+            >
+              <form onSubmit={handleSearchSubmit} className="relative">
+                <div className="relative flex items-center">
+                  <UilSearch size={16} className="text-gray-400 absolute left-3 pointer-events-none" />
+                  <input
+                    ref={mobileSearchInputRef}
+                    type="text"
+                    placeholder="Search products, brands, categories..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    className="w-full bg-gray-50 border-2 border-[#F58220] rounded-full pl-9 pr-24 py-2 text-xs font-semibold shadow-md outline-hidden text-gray-900"
+                  />
+
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        mobileSearchInputRef.current?.focus();
+                      }}
+                      className="absolute right-20 text-gray-400 p-1"
+                    >
+                      <UilTimes size={15} />
+                    </button>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="absolute right-1 bg-[#F58220] text-white px-3.5 py-1.5 rounded-full font-bold text-xs shadow-xs"
+                  >
+                    Search
+                  </button>
+                </div>
+              </form>
+
+              {/* Mobile Search Dropdown */}
+              <AnimatePresence>
+                {isSearchFocused && renderDropdownContent()}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Mobile Navigation Drawer Overlay with Category & Subcategory Accordion */}

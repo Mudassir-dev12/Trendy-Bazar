@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import Pagination from "@/components/Pagination";
+import AdminTableSkeleton from "@/components/AdminTableSkeleton";
 import { useProducts } from "@/context/ProductContext";
 import { categories } from "@/data/categories";
 import { formatPrice } from "@/lib/data";
@@ -36,6 +38,7 @@ export default function AdminPage() {
   const {
     products,
     orders,
+    isLoading,
     addProduct,
     editProduct,
     updateStock,
@@ -130,7 +133,6 @@ export default function AdminPage() {
     subcategory: "mobile-charging",
     price: "",
     originalPrice: "",
-    discountPrice: "",
     stock: "25",
     rating: "4.8",
     reviewCount: "45",
@@ -148,12 +150,31 @@ export default function AdminPage() {
   const totalProducts = products.length;
   const outOfStockCount = products.filter((p) => (parseInt(p.stock, 10) <= 0 || !p.stock)).length;
 
+  // Pagination State
+  const [prodPage, setProdPage] = useState(1);
+  const [prodPerPage, setProdPerPage] = useState(10);
+  const [orderPage, setOrderPage] = useState(1);
+  const [orderPerPage, setOrderPerPage] = useState(10);
+
   // Filter products by search term
   const filteredProducts = products.filter(
     (p) =>
       p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(p.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.category?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Paginated slices
+  const totalProdPages = Math.ceil(filteredProducts.length / prodPerPage) || 1;
+  const paginatedProducts = filteredProducts.slice(
+    (prodPage - 1) * prodPerPage,
+    prodPage * prodPerPage
+  );
+
+  const totalOrderPages = Math.ceil(orders.length / orderPerPage) || 1;
+  const paginatedOrders = orders.slice(
+    (orderPage - 1) * orderPerPage,
+    orderPage * orderPerPage
   );
 
   // Client-side HTML5 canvas image compressor (shrinks multi-MB files to ~30KB)
@@ -304,7 +325,6 @@ export default function AdminPage() {
       subcategory: "mobile-charging",
       price: "",
       originalPrice: "",
-      discountPrice: "",
       stock: "25",
       rating: "4.8",
       reviewCount: "45",
@@ -471,7 +491,10 @@ export default function AdminPage() {
       {/* UNIFIED TAB 1: DASHBOARD & INVENTORY */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "dashboard" && (
-        <div className="space-y-6">
+        isLoading && products.length === 0 ? (
+          <AdminTableSkeleton rows={prodPerPage} type="products" />
+        ) : (
+          <div className="space-y-6">
           {/* Metrics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center gap-4">
@@ -552,14 +575,20 @@ export default function AdminPage() {
                     <th className="p-3.5">Product</th>
                     <th className="p-3.5">Category</th>
                     <th className="p-3.5">Price</th>
-                    <th className="p-3.5">Discount Price</th>
+                    <th className="p-3.5">Original Price</th>
+                    <th className="p-3.5">Discount</th>
                     <th className="p-3.5">Stock</th>
                     <th className="p-3.5">Flags</th>
                     <th className="p-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredProducts.map((product) => (
+                  {paginatedProducts.map((product) => {
+                    const price = product.price || 0;
+                    const origPrice = product.originalPrice && product.originalPrice > price ? product.originalPrice : null;
+                    const discountPct = origPrice ? Math.round(((origPrice - price) / origPrice) * 100) : (product.discount || 0);
+
+                    return (
                     <tr key={product.id} className="hover:bg-gray-50/60 transition-colors">
                       <td className="p-3.5">
                         <div className="flex items-center gap-3">
@@ -581,12 +610,22 @@ export default function AdminPage() {
                         {product.subcategory?.replace(/-/g, " ") || product.category?.replace(/-/g, " ")}
                       </td>
 
-                      <td className="p-3.5 font-bold text-gray-900">
+                      <td className="p-3.5 font-extrabold text-[#F58220]">
                         {formatPrice(product.price)}
                       </td>
 
-                      <td className="p-3.5 font-extrabold text-[#F58220]">
-                        {formatPrice(product.discountPrice || product.price)}
+                      <td className="p-3.5 text-gray-400 font-medium">
+                        {origPrice ? <span className="line-through">{formatPrice(origPrice)}</span> : <span className="text-gray-300">-</span>}
+                      </td>
+
+                      <td className="p-3.5 font-bold">
+                        {discountPct > 0 ? (
+                          <span className="bg-green-100 text-green-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-sm">
+                            {discountPct}% OFF
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
                       </td>
 
                       <td className="p-3.5">
@@ -643,18 +682,53 @@ export default function AdminPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+
+            {/* Products Table Pagination Bar */}
+            <div className="p-3.5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold">
+                <span>Items per page:</span>
+                <select
+                  value={prodPerPage}
+                  onChange={(e) => {
+                    setProdPerPage(Number(e.target.value));
+                    setProdPage(1);
+                  }}
+                  className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700 outline-hidden"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+
+              <Pagination
+                currentPage={prodPage}
+                totalPages={totalProdPages}
+                totalItems={filteredProducts.length}
+                itemsPerPage={prodPerPage}
+                onPageChange={setProdPage}
+                alwaysShow={true}
+                className="py-0 px-0"
+              />
+            </div>
           </div>
         </div>
+        )
       )}
 
       {/* ------------------------------------------------------------------ */}
       {/* TAB 2: CUSTOMER ORDERS */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "orders" && (
+        isLoading && orders.length === 0 ? (
+          <AdminTableSkeleton rows={orderPerPage} type="orders" />
+        ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-extrabold text-gray-900 text-sm">Customer Orders Log</h3>
@@ -675,7 +749,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {orders.map((order) => (
+                {paginatedOrders.map((order) => (
                   <tr key={order.id} className="hover:bg-gray-50/60 transition-colors">
                     <td className="p-3.5 font-bold font-mono text-gray-900">{order.id}</td>
                     <td className="p-3.5 text-gray-500">{order.date ? new Date(order.date).toLocaleDateString() : 'Recent'}</td>
@@ -732,7 +806,38 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Orders Table Pagination Bar */}
+          <div className="p-3.5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold">
+              <span>Orders per page:</span>
+              <select
+                value={orderPerPage}
+                onChange={(e) => {
+                  setOrderPerPage(Number(e.target.value));
+                  setOrderPage(1);
+                }}
+                className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700 outline-hidden"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+
+            <Pagination
+              currentPage={orderPage}
+              totalPages={totalOrderPages}
+              totalItems={orders.length}
+              itemsPerPage={orderPerPage}
+              onPageChange={setOrderPage}
+              alwaysShow={true}
+              className="py-0 px-0"
+            />
+          </div>
         </div>
+        )
       )}
 
       {/* ------------------------------------------------------------------ */}
@@ -806,19 +911,19 @@ export default function AdminPage() {
                   <input
                     type="number"
                     required
-                    placeholder="e.g. 4500"
+                    placeholder="e.g. 2499"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 font-semibold"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Discount Price (Rs.)</label>
+                  <label className="block font-bold text-gray-700 mb-1">Original Price (Rs.)</label>
                   <input
                     type="number"
-                    placeholder="e.g. 3500"
-                    value={formData.discountPrice}
-                    onChange={(e) => setFormData({ ...formData, discountPrice: e.target.value })}
+                    placeholder="e.g. 2999"
+                    value={formData.originalPrice}
+                    onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 font-semibold"
                   />
                 </div>
@@ -1010,7 +1115,7 @@ export default function AdminPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Selling Price (Rs.)</label>
+                  <label className="block font-bold text-gray-700 mb-1">Price (Rs.)</label>
                   <input
                     type="number"
                     step="1"
@@ -1025,24 +1130,12 @@ export default function AdminPage() {
                   <input
                     type="number"
                     step="1"
+                    placeholder="Optional (e.g. 2999)"
                     value={editingProduct.originalPrice || ""}
                     onChange={(e) => setEditingProduct({ ...editingProduct, originalPrice: e.target.value })}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 font-semibold"
                   />
                 </div>
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Discount Price (Rs.)</label>
-                  <input
-                    type="number"
-                    step="1"
-                    value={editingProduct.discountPrice || ""}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, discountPrice: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">Stock Quantity</label>
                   <input
@@ -1052,6 +1145,9 @@ export default function AdminPage() {
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl p-2.5 font-semibold"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">Rating (1 - 5)</label>
                   <input
@@ -1233,8 +1329,13 @@ export default function AdminPage() {
 
               <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-xl">
                 <div>
-                  <span className="text-gray-400 font-bold block">Selling Price</span>
+                  <span className="text-gray-400 font-bold block">Price</span>
                   <span className="font-black text-sm text-[#F58220]">{formatPrice(viewingProduct.price)}</span>
+                  {viewingProduct.originalPrice && viewingProduct.originalPrice > viewingProduct.price && (
+                    <span className="text-xs text-gray-400 line-through block mt-0.5">
+                      {formatPrice(viewingProduct.originalPrice)}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="text-gray-400 font-bold block">Stock Available</span>
