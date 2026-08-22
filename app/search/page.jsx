@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import FilterSidebar from "@/components/FilterSidebar";
@@ -8,6 +8,7 @@ import ProductGrid from "@/components/ProductGrid";
 import Pagination from "@/components/Pagination";
 import { useProducts } from "@/context/ProductContext";
 import { filterProducts } from "@/lib/data";
+import { trackSearch } from "@/lib/pixel";
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -22,8 +23,11 @@ function SearchContent() {
   const [page, setPage] = useState(1);
   const itemsPerPage = 12;
 
-  React.useEffect(() => {
+  useEffect(() => {
     setPage(1);
+    if (query) {
+      trackSearch(query);
+    }
   }, [query]);
 
   const results = filterProducts({

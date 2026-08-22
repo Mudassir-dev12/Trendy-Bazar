@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import Breadcrumbs from "@/components/Breadcrumbs";
@@ -9,6 +9,7 @@ import { useCart } from "@/context/CartContext";
 import { useProducts } from "@/context/ProductContext";
 import { formatPrice } from "@/lib/data";
 import { buttonPressProps, springBounce, fadeUp } from "@/lib/motion";
+import { trackInitiateCheckout, trackPurchase } from "@/lib/pixel";
 import {
   UilCheckCircle,
   UilCreditCard,
@@ -38,6 +39,13 @@ export default function CheckoutPage() {
   const shippingCost = freeShipping ? 0 : 300;
   const estimatedTax = 0; // Taxes removed as requested
   const total = subtotal + shippingCost;
+
+  // Track InitiateCheckout on mount
+  useEffect(() => {
+    if (cart.length > 0) {
+      trackInitiateCheckout(cart, total);
+    }
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -76,12 +84,16 @@ export default function CheckoutPage() {
 
     try {
       const createdOrder = await placeOrder(orderPayload);
+      const finalOrder = createdOrder || orderPayload;
+      trackPurchase(finalOrder);
       clearCart();
-      setOrderConfirmed(createdOrder || orderPayload);
+      setOrderConfirmed(finalOrder);
     } catch (err) {
       console.error("Order submission error:", err);
+      const fallbackOrder = { id: `TB-${Date.now().toString().slice(-6)}`, ...orderPayload };
+      trackPurchase(fallbackOrder);
       clearCart();
-      setOrderConfirmed({ id: `TB-${Date.now().toString().slice(-6)}`, ...orderPayload });
+      setOrderConfirmed(fallbackOrder);
     } finally {
       setIsSubmitting(false);
     }

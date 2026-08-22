@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { trackAddToWishlist } from "@/lib/pixel";
 
 const WishlistContext = createContext();
 
@@ -38,6 +39,7 @@ export function WishlistProvider({ children }) {
       if (exists) {
         return prev.filter((item) => String(item.id) !== String(product.id));
       } else {
+        trackAddToWishlist(product);
         return [...prev, product];
       }
     });

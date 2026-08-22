@@ -15,6 +15,7 @@ import { useToast } from "@/context/ToastContext";
 import { useProducts } from "@/context/ProductContext";
 import { getProductById, getRelatedProducts, formatPrice } from "@/lib/data";
 import { buttonPressProps, springBounce } from "@/lib/motion";
+import { trackViewContent } from "@/lib/pixel";
 import {
   UilHeart,
   UilShoppingBag,
@@ -52,6 +53,12 @@ export default function ProductDetailPage({ params }) {
       setImgSrc(product.image);
     }
   }, [product?.image]);
+
+  useEffect(() => {
+    if (product) {
+      trackViewContent(product);
+    }
+  }, [product?.id]);
 
   if (!product) {
     if (isLoading) {

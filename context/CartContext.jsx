@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { trackAddToCart } from "@/lib/pixel";
 
 const CartContext = createContext();
 
@@ -36,6 +37,7 @@ export function CartProvider({ children }) {
   }, [cart, isInitialized]);
 
   const addToCart = (product, quantity = 1) => {
+    trackAddToCart(product, quantity);
     setCart((prevCart) => {
       const existingIndex = prevCart.findIndex((item) => String(item.id) === String(product.id));
       if (existingIndex > -1) {
