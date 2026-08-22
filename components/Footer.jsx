@@ -116,16 +116,31 @@ export default function Footer() {
           {/* Customer Service Column */}
           <div>
             <h4 className="font-bold text-white text-sm uppercase tracking-wider mb-4 border-l-2 border-[#F58220] pl-2.5">
-              Customer Care
+              Contact & Support
             </h4>
-            <ul className="space-y-2 text-xs text-gray-400">
+            <ul className="space-y-2.5 text-xs text-gray-400">
               <li>
-                <Link href="/cart" className="hover:text-[#F58220] transition-colors">
+                <a href="tel:+923402856453" className="hover:text-[#F58220] transition-colors flex items-center gap-1.5 font-medium text-gray-300">
+                  📞 Call: 0340-2856453
+                </a>
+              </li>
+              <li>
+                <a href="https://wa.me/923402856453" target="_blank" rel="noopener noreferrer" className="hover:text-[#F58220] transition-colors flex items-center gap-1.5 font-medium text-emerald-400">
+                  💬 WhatsApp: 0340-2856453
+                </a>
+              </li>
+              <li>
+                <span className="text-gray-400 block pt-0.5 text-[11px]">
+                  <strong className="text-gray-300">Owner:</strong> Ali Raza (CEO)
+                </span>
+              </li>
+              <li className="pt-1">
+                <Link href="/cart" className="hover:text-[#F58220] transition-colors block">
                   Shopping Cart
                 </Link>
               </li>
               <li>
-                <Link href="/wishlist" className="hover:text-[#F58220] transition-colors">
+                <Link href="/wishlist" className="hover:text-[#F58220] transition-colors block">
                   Saved Wishlist
                 </Link>
               </li>
@@ -160,7 +175,7 @@ export default function Footer() {
 
         {/* Bottom Credits */}
         <div className="pt-8 border-t border-gray-900 flex flex-col md:flex-row items-center justify-between text-xs text-gray-500 gap-4">
-          <p>© 2026 Trendy Bazaar. All rights reserved. Built with Next.js & IconScout Unicons.</p>
+          <p>© 2026 Trendy Bazaar. Owned & Managed by Ali Raza. All rights reserved.</p>
           <div className="flex items-center gap-4 text-xs">
             <span className="flex items-center gap-1 text-gray-400">
               <UilCreditCard size={14} /> Visa / Mastercard / COD / JazzCash

@@ -302,9 +302,9 @@ export default function Header() {
             </span>
           </div>
           <div className="hidden md:flex items-center gap-5 text-[11px] opacity-90 shrink-0">
-            <span className="flex items-center gap-1">
-              <UilPhone size={14} /> Support: 1-800-TRENDY
-            </span>
+            <a href="tel:+923402856453" className="flex items-center gap-1 hover:underline font-semibold">
+              <UilPhone size={14} /> Support / WhatsApp: 0340-2856453
+            </a>
           </div>
         </div>
       </div>
