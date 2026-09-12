@@ -1,18 +1,49 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import {
   getProducts,
   saveProducts,
   getOrders,
   saveOrder,
   saveOrdersList,
-  resetProductsToDefault
+  resetProductsToDefault,
+  filterProducts as filterProductsLocal,
+  mapSupabaseProductToFrontend
 } from "@/lib/data";
 import { initialProducts } from "@/data/products";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const ProductContext = createContext();
+
+const SELECT_FIELDS = "id, title, slug, category, subcategory, price, original_price, discount, rating, reviews_count, image, stock, is_featured, badge";
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// In-memory cache map
+const memoryCache = new Map();
+
+/**
+ * Clear memory and sessionStorage cache for products
+ */
+export function clearProductCache() {
+  memoryCache.clear();
+  if (typeof window !== "undefined") {
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith("tb_cache_page_")) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => sessionStorage.removeItem(k));
+    } catch (e) {
+      console.warn("Error clearing sessionStorage product cache:", e);
+    }
+  }
+}
+
+
 
 export function ProductProvider({ children }) {
   // If Supabase is configured, start empty so skeletons display during fetch (no random seed images)
@@ -21,48 +52,19 @@ export function ProductProvider({ children }) {
   const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
   const [isLoaded, setIsLoaded] = useState(!isSupabaseConfigured);
 
-  // Background sync with Supabase
+  // Background sync with Supabase (Initial load fetches top 20 with specific columns only)
   useEffect(() => {
     async function syncProductsFromSupabase() {
       if (!isSupabaseConfigured) return;
       try {
         const { data: sbProducts, error: prodErr } = await supabase
           .from("products")
-          .select("*")
-          .order("created_at", { ascending: false });
+          .select(SELECT_FIELDS)
+          .order("created_at", { ascending: false })
+          .range(0, 19);
 
         if (!prodErr && Array.isArray(sbProducts) && sbProducts.length > 0) {
-          const dynamicProducts = sbProducts.map((p) => {
-            const imgList = p.image ? p.image.split("|||") : [];
-            const primaryImg = imgList[0] || p.image || "";
-            const allImgs = imgList.length > 0 ? imgList : [primaryImg];
-            const finalPrice = parseFloat(p.price) || 0;
-            const rawOrigPrice = p.original_price ? parseFloat(p.original_price) : 0;
-            const originalPrice = rawOrigPrice > finalPrice ? rawOrigPrice : (finalPrice > 0 ? Math.round(finalPrice * 1.25) : 0);
-            const discount = originalPrice > finalPrice ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100) : 0;
-
-            return {
-              id: p.id,
-              name: p.title,
-              title: p.title,
-              slug: p.slug || p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-              category: p.category,
-              subcategory: p.subcategory || "",
-              price: finalPrice,
-              originalPrice: originalPrice,
-              discountPrice: finalPrice,
-              discount: discount,
-              rating: parseFloat(p.rating) || 4.8,
-              reviewCount: p.reviews_count || 12,
-              image: primaryImg,
-              images: allImgs,
-              description: p.description || "",
-              stock: p.stock || 50,
-              isFeatured: p.is_featured || false,
-              badge: p.badge || (discount >= 15 ? `${discount}% OFF` : "")
-            };
-          });
-
+          const dynamicProducts = sbProducts.map(mapSupabaseProductToFrontend);
           setProducts(dynamicProducts);
           saveProducts(dynamicProducts);
         } else if (!prodErr && Array.isArray(sbProducts) && sbProducts.length === 0) {
@@ -125,14 +127,15 @@ export function ProductProvider({ children }) {
       prodChannel = supabase
         .channel("realtime-products")
         .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
-          loadData();
+          clearProductCache();
+          refreshData();
         })
         .subscribe();
 
       orderChannel = supabase
         .channel("realtime-orders")
         .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-          loadData();
+          refreshData();
         })
         .subscribe();
     }
@@ -143,6 +146,111 @@ export function ProductProvider({ children }) {
     };
   }, []);
 
+  /**
+   * Paginated Product Fetching with memory + sessionStorage Caching
+   */
+  const fetchProductsPage = async ({
+    category = "",
+    subcategory = "",
+    query = "",
+    page = 1,
+    pageSize = 10,
+    minPrice = 0,
+    maxPrice = 200000,
+    minRating = 0,
+    sortBy = "popular"
+  } = {}) => {
+    const cacheKey = `tb_cache_page_${category || 'all'}_${subcategory || 'all'}_${encodeURIComponent(query || '')}_${page}_${pageSize}_${sortBy}_${minPrice}_${maxPrice}_${minRating}`;
+
+    // 1. Check in-memory cache
+    const memEntry = memoryCache.get(cacheKey);
+    if (memEntry && Date.now() - memEntry.timestamp < CACHE_TTL_MS) {
+      return { products: memEntry.products, hasMore: memEntry.hasMore, fromCache: true };
+    }
+
+    // 2. Check sessionStorage cache
+    if (typeof window !== "undefined") {
+      try {
+        const stored = sessionStorage.getItem(cacheKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && Date.now() - parsed.timestamp < CACHE_TTL_MS) {
+            memoryCache.set(cacheKey, parsed);
+            return { products: parsed.products, hasMore: parsed.hasMore, fromCache: true };
+          }
+        }
+      } catch (e) {
+        console.warn("SessionStorage cache read error:", e);
+      }
+    }
+
+    // 3. Fetch paginated batch from Supabase if configured
+    if (isSupabaseConfigured) {
+      try {
+        let q = supabase
+          .from("products")
+          .select(SELECT_FIELDS)
+          .order("created_at", { ascending: false });
+
+        if (category) q = q.eq("category", category);
+        if (subcategory) q = q.eq("subcategory", subcategory);
+        if (query && query.trim()) q = q.ilike("title", `%${query.trim()}%`);
+
+        // Price range filter at DB level if applicable
+        if (minPrice > 0) q = q.gte("price", minPrice);
+        if (maxPrice < 200000) q = q.lte("price", maxPrice);
+        if (minRating > 0) q = q.gte("rating", minRating);
+
+        // Sorting at DB level
+        if (sortBy === "price-asc") q = q.order("price", { ascending: true });
+        else if (sortBy === "price-desc") q = q.order("price", { ascending: false });
+        else if (sortBy === "rating") q = q.order("rating", { ascending: false });
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        q = q.range(from, to);
+
+        const { data: sbProducts, error } = await q;
+
+        if (!error && Array.isArray(sbProducts)) {
+          const mappedProducts = sbProducts.map(mapSupabaseProductToFrontend);
+          const hasMore = sbProducts.length === pageSize;
+
+          const cacheObj = { timestamp: Date.now(), products: mappedProducts, hasMore };
+          memoryCache.set(cacheKey, cacheObj);
+          if (typeof window !== "undefined") {
+            try {
+              sessionStorage.setItem(cacheKey, JSON.stringify(cacheObj));
+            } catch (e) {}
+          }
+
+          return { products: mappedProducts, hasMore, fromCache: false };
+        }
+      } catch (err) {
+        console.warn("Supabase paginated fetch failed:", err);
+      }
+    }
+
+    // 4. Fallback filter for local products list
+    const filtered = filterProductsLocal({
+      products: products.length > 0 ? products : initialProducts,
+      category,
+      subcategory,
+      query,
+      minPrice,
+      maxPrice,
+      minRating,
+      sortBy
+    });
+
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize;
+    const sliced = filtered.slice(from, to);
+    const hasMore = filtered.length > to;
+
+    return { products: sliced, hasMore, fromCache: false };
+  };
+
   // Sync products changes
   const updateProductList = (newProducts) => {
     setProducts(newProducts);
@@ -151,6 +259,7 @@ export function ProductProvider({ children }) {
 
   // Add Product (Admin + Supabase Sync)
   const addProduct = async (productData) => {
+    clearProductCache();
     const slug = productData.slug || (productData.name || productData.title).toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const priceVal = parseFloat(productData.price) || 0;
     const origPriceVal = productData.originalPrice ? parseFloat(productData.originalPrice) : (priceVal > 0 ? Math.round(priceVal * 1.25) : 0);
@@ -224,6 +333,7 @@ export function ProductProvider({ children }) {
 
   // Edit/Update Product (Admin + Supabase Sync)
   const editProduct = async (id, updatedFields) => {
+    clearProductCache();
     const rawImages = Array.isArray(updatedFields.images) && updatedFields.images.length > 0
       ? updatedFields.images
       : (updatedFields.image ? [updatedFields.image] : []);
@@ -307,6 +417,7 @@ export function ProductProvider({ children }) {
 
   // Delete Product (Admin + Supabase Sync)
   const deleteProduct = async (id) => {
+    clearProductCache();
     const targetProduct = products.find((p) => String(p.id) === String(id));
     const updated = products.filter((p) => String(p.id) !== String(id));
     updateProductList(updated);
@@ -390,43 +501,15 @@ export function ProductProvider({ children }) {
 
   // Refresh data from Supabase/local
   const refreshData = async () => {
+    clearProductCache();
     if (!isSupabaseConfigured) {
       setProducts(getProducts());
       setOrders(getOrders());
       return;
     }
-    const { data: sbProducts } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+    const { data: sbProducts } = await supabase.from("products").select(SELECT_FIELDS).order("created_at", { ascending: false }).range(0, 19);
     if (Array.isArray(sbProducts)) {
-      const remapped = sbProducts.map((p) => {
-        const imgList = p.image ? p.image.split("|||") : [];
-        const primaryImg = imgList[0] || p.image || "";
-        const allImgs = imgList.length > 0 ? imgList : [primaryImg];
-        const finalPrice = parseFloat(p.price) || 0;
-        const rawOrigPrice = p.original_price ? parseFloat(p.original_price) : 0;
-        const originalPrice = rawOrigPrice > finalPrice ? rawOrigPrice : (finalPrice > 0 ? Math.round(finalPrice * 1.25) : 0);
-        const discount = originalPrice > finalPrice ? Math.round(((originalPrice - finalPrice) / originalPrice) * 100) : 0;
-
-        return {
-          id: p.id,
-          name: p.title,
-          title: p.title,
-          slug: p.slug || p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-          category: p.category,
-          subcategory: p.subcategory || "",
-          price: finalPrice,
-          originalPrice: originalPrice,
-          discountPrice: finalPrice,
-          discount: discount,
-          rating: parseFloat(p.rating) || 4.8,
-          reviewCount: p.reviews_count || 12,
-          image: primaryImg,
-          images: allImgs,
-          description: p.description || "",
-          stock: p.stock || 50,
-          isFeatured: p.is_featured || false,
-          badge: p.badge || (discount >= 15 ? `${discount}% OFF` : "")
-        };
-      });
+      const remapped = sbProducts.map(mapSupabaseProductToFrontend);
       setProducts(remapped);
     }
     const { data: sbOrders } = await supabase.from("orders").select("*, order_items(*)").order("created_at", { ascending: false });
@@ -458,6 +541,7 @@ export function ProductProvider({ children }) {
 
   // Reset to original data
   const resetToDefault = () => {
+    clearProductCache();
     const defaultList = resetProductsToDefault();
     setProducts(defaultList);
   };
@@ -566,6 +650,8 @@ export function ProductProvider({ children }) {
         orders,
         isLoading,
         isLoaded,
+        fetchProductsPage,
+        clearProductCache,
         addProduct,
         editProduct,
         updateStock,

@@ -2,17 +2,12 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import Link from "next/link";
-import { UilAngleRight, UilHeart } from "@iconscout/react-unicons";
-import { useCart } from "@/context/CartContext";
-import { useWishlist } from "@/context/WishlistContext";
-import { formatPrice } from "@/lib/data";
+import { UilAngleRight } from "@iconscout/react-unicons";
+import ProductCard from "./ProductCard";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=800&auto=format&fit=crop&q=80";
 
 export default function FeaturedSplitSection({ products = [], isLoading = false }) {
-  const { addToCart } = useCart();
-  const { toggleWishlist, isInWishlist } = useWishlist();
-  const [addedMap, setAddedMap] = useState({});
   const [isPaused, setIsPaused] = useState(false);
   const sliderRef = useRef(null);
 
@@ -40,22 +35,6 @@ export default function FeaturedSplitSection({ products = [], isLoading = false 
     if (sliderRef.current) {
       sliderRef.current.scrollBy({ left: 240, behavior: "smooth" });
     }
-  };
-
-  const handleAddToCart = (e, product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    addToCart(product, 1);
-    setAddedMap((prev) => ({ ...prev, [product.id]: true }));
-    setTimeout(() => {
-      setAddedMap((prev) => ({ ...prev, [product.id]: false }));
-    }, 1500);
-  };
-
-  const handleToggleWishlist = (e, product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleWishlist(product);
   };
 
   if (isLoading || !products || products.length === 0) {
@@ -118,78 +97,14 @@ export default function FeaturedSplitSection({ products = [], isLoading = false 
             ref={sliderRef}
             className="flex items-stretch gap-2.5 sm:gap-4 overflow-x-auto custom-scrollbar pb-3 snap-x scroll-smooth"
           >
-            {tableProducts.map((product) => {
-              const isFavorited = isInWishlist(product.id);
-              const isAdded = addedMap[product.id];
-              const price = product.price || 0;
-              const originalPrice = product.originalPrice && product.originalPrice > price ? product.originalPrice : null;
-              const hasDiscount = Boolean(originalPrice);
-
-              return (
-                <div
-                  key={product.id}
-                  className="w-[calc(50%-5px)] sm:w-56 shrink-0 snap-start bg-white rounded-2xl border border-gray-200 p-2.5 sm:p-3.5 flex flex-col justify-between relative hover:shadow-md transition-all"
-                >
-                  {/* Wishlist button */}
-                  <button
-                    onClick={(e) => handleToggleWishlist(e, product)}
-                    aria-label="Toggle Wishlist"
-                    className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-white/90 shadow-xs border border-gray-100 flex items-center justify-center"
-                  >
-                    <UilHeart
-                      size={15}
-                      className={isFavorited ? "text-red-500 fill-red-500" : "text-gray-700"}
-                    />
-                  </button>
-
-                  {/* Image */}
-                  <Link href={`/product/${product.id}`} className="block w-full pt-[85%] relative overflow-hidden rounded-xl bg-gray-50 mb-2 sm:mb-3">
-                    <img
-                      src={product.image || FALLBACK_IMAGE}
-                      alt={product.name}
-                      onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
-                      className="absolute inset-0 w-full h-full object-contain p-1.5 sm:p-2 hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                      suppressHydrationWarning
-                    />
-                  </Link>
-
-                  {/* Pricing & Add Button */}
-                  <div>
-                    <div className="mb-1" suppressHydrationWarning>
-                      <span className="text-sm sm:text-base font-black text-gray-900" suppressHydrationWarning>
-                        {formatPrice(price)}
-                      </span>
-                      {hasDiscount && (
-                        <p className="text-[10px] sm:text-[11px] text-gray-500 font-bold" suppressHydrationWarning>
-                          <span className="line-through">{formatPrice(originalPrice)}</span>
-                        </p>
-                      )}
-                    </div>
-
-                    <Link
-                      href={`/product/${product.id}`}
-                      className="text-[11px] sm:text-xs font-semibold text-gray-800 line-clamp-2 leading-tight mb-2 sm:mb-3 block hover:text-[#F58220]"
-                      suppressHydrationWarning
-                    >
-                      {product.name}
-                    </Link>
-
-                    <button
-                      onClick={(e) => handleAddToCart(e, product)}
-                      disabled={product.stock === 0}
-                      className={`w-full text-center border-2 text-[10px] sm:text-xs font-extrabold py-1.5 px-2.5 rounded-full transition-all ${
-                        isAdded
-                          ? "border-green-600 bg-green-600 text-white"
-                          : "border-gray-900 hover:bg-gray-900 hover:text-white text-gray-900"
-                      }`}
-                    >
-                      {isAdded ? "Added" : "Options"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            {tableProducts.map((product) => (
+              <div
+                key={product.id}
+                className="w-[calc(50%-5px)] sm:w-56 shrink-0 snap-start flex flex-col"
+              >
+                <ProductCard product={product} />
+              </div>
+            ))}
           </div>
 
           {/* Right Carousel Scroll Arrow */}

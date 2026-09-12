@@ -1,13 +1,12 @@
-import { getProductById } from "@/lib/data";
+import { fetchProductByIdOrSlug } from "@/lib/data";
 import ProductDetailClient from "./ProductDetailClient";
-import { initialProducts } from "@/data/products";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.trendybazaarofficial.online";
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
   const { id } = resolvedParams;
-  const product = getProductById(id, initialProducts);
+  const product = await fetchProductByIdOrSlug(id);
 
   if (!product) {
     return {
@@ -64,7 +63,7 @@ export async function generateMetadata({ params }) {
 export default async function ProductDetailPage({ params }) {
   const resolvedParams = await params;
   const { id } = resolvedParams;
-  const product = getProductById(id, initialProducts);
+  const product = await fetchProductByIdOrSlug(id);
 
   const canonicalUrl = `${siteUrl}/product/${id}`;
 
@@ -78,8 +77,8 @@ export default async function ProductDetailPage({ params }) {
             "name": product.name,
             "image": product.image?.startsWith("http") ? product.image : `${siteUrl}${product.image || "/logo.png"}`,
             "description": product.description,
-            "sku": product.id.toUpperCase(),
-            "mpn": product.id,
+            "sku": String(product.id).toUpperCase(),
+            "mpn": String(product.id),
             "brand": {
               "@type": "Brand",
               "name": "Trendy Bazaar Official",
@@ -141,7 +140,7 @@ export default async function ProductDetailPage({ params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <ProductDetailClient id={id} />
+      <ProductDetailClient id={id} initialProduct={product} />
     </>
   );
 }

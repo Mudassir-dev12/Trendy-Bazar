@@ -45,8 +45,8 @@ export default function Footer() {
               <UilSync size={24} />
             </div>
             <div>
-              <h4 className="font-bold text-white text-sm">Direct Warranty</h4>
-              <p className="text-xs text-gray-400 mt-0.5">100% manufacturer warranty</p>
+              <h4 className="font-bold text-white text-sm">14-Day Return</h4>
+              <p className="text-xs text-gray-400 mt-0.5">Easy returns & exchanges</p>
             </div>
           </div>
 

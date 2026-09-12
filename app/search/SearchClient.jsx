@@ -14,40 +14,80 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
 
-  const { products, isLoading } = useProducts();
+  const { fetchProductsPage } = useProducts();
 
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(200000);
   const [minRating, setMinRating] = useState(0);
   const [sortBy, setSortBy] = useState("popular");
+  
+  const [results, setResults] = useState([]);
   const [page, setPage] = useState(1);
-  const itemsPerPage = 12;
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
-    setPage(1);
     if (query) {
       trackSearch(query);
     }
   }, [query]);
 
-  const results = filterProducts({
-    products,
-    query,
-    minPrice,
-    maxPrice,
-    minRating,
-    sortBy
-  });
+  // Load initial page of 10 search items
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSearchPage() {
+      setIsLoading(true);
+      setPage(1);
+      const res = await fetchProductsPage({
+        query,
+        page: 1,
+        pageSize: 10,
+        minPrice,
+        maxPrice,
+        minRating,
+        sortBy
+      });
 
-  const totalPages = Math.ceil(results.length / itemsPerPage) || 1;
-  const paginatedResults = results.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+      if (isMounted) {
+        setResults(res.products || []);
+        setHasMore(res.hasMore || false);
+        setIsLoading(false);
+      }
+    }
+
+    loadSearchPage();
+    return () => {
+      isMounted = false;
+    };
+  }, [query, minPrice, maxPrice, minRating, sortBy]);
+
+  // Load next batch of 10 items
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    const res = await fetchProductsPage({
+      query,
+      page: nextPage,
+      pageSize: 10,
+      minPrice,
+      maxPrice,
+      minRating,
+      sortBy
+    });
+
+    setResults((prev) => [...prev, ...(res.products || [])]);
+    setHasMore(res.hasMore || false);
+    setPage(nextPage);
+    setIsLoadingMore(false);
+  };
 
   const handleResetFilters = () => {
     setMinPrice(0);
     setMaxPrice(200000);
     setMinRating(0);
     setSortBy("popular");
-    setPage(1);
   };
 
   return (
@@ -60,7 +100,7 @@ function SearchContent() {
             Search Results for "{query}"
           </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Found {results.length} matching products across Trendy Bazaar catalog
+            Showing {results.length} matching products across Trendy Bazaar catalog
           </p>
         </div>
       </div>
@@ -72,37 +112,27 @@ function SearchContent() {
           onPriceChange={(min, max) => {
             setMinPrice(min);
             setMaxPrice(max);
-            setPage(1);
           }}
           minRating={minRating}
           onRatingChange={(r) => {
             setMinRating(r);
-            setPage(1);
           }}
           sortBy={sortBy}
           onSortChange={(s) => {
             setSortBy(s);
-            setPage(1);
           }}
           onResetFilters={handleResetFilters}
         />
 
         <div className="flex-1 w-full">
-          <ProductGrid products={paginatedResults} columns="3" isLoading={isLoading && paginatedResults.length === 0} />
-
-          {results.length > itemsPerPage && (
-            <div className="mt-8 bg-white rounded-2xl p-4 border border-gray-100 shadow-xs">
-              <Pagination
-                currentPage={page}
-                totalPages={totalPages}
-                totalItems={results.length}
-                itemsPerPage={itemsPerPage}
-                onPageChange={setPage}
-                scrollToTop={true}
-                className="py-0"
-              />
-            </div>
-          )}
+          <ProductGrid
+            products={results}
+            columns="3"
+            isLoading={isLoading}
+            onLoadMore={handleLoadMore}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+          />
         </div>
       </div>
     </div>

@@ -13,7 +13,7 @@ function CategoryContent({ slug }) {
   const searchParams = useSearchParams();
   const subQuery = searchParams.get("sub") || "";
 
-  const { products, isLoading } = useProducts();
+  const { fetchProductsPage } = useProducts();
   const category = getCategoryBySlug(slug);
 
   const [selectedSubcategory, setSelectedSubcategory] = useState(subQuery);
@@ -21,15 +21,72 @@ function CategoryContent({ slug }) {
   const [maxPrice, setMaxPrice] = useState(200000);
   const [minRating, setMinRating] = useState(0);
   const [sortBy, setSortBy] = useState("popular");
+  
+  const [loadedProducts, setLoadedProducts] = useState([]);
   const [page, setPage] = useState(1);
-  const itemsPerPage = 12;
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   React.useEffect(() => {
     if (subQuery) {
       setSelectedSubcategory(subQuery);
-      setPage(1);
     }
   }, [subQuery]);
+
+  // Load initial page of 10 items when filters/category change
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadInitialPage() {
+      setIsLoading(true);
+      setPage(1);
+      const res = await fetchProductsPage({
+        category: slug,
+        subcategory: selectedSubcategory,
+        page: 1,
+        pageSize: 10,
+        minPrice,
+        maxPrice,
+        minRating,
+        sortBy
+      });
+
+      if (isMounted) {
+        setLoadedProducts(res.products || []);
+        setHasMore(res.hasMore || false);
+        setIsLoading(false);
+      }
+    }
+
+    if (category) {
+      loadInitialPage();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [slug, selectedSubcategory, minPrice, maxPrice, minRating, sortBy]);
+
+  // Load next batch of 10 items
+  const handleLoadMore = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    const res = await fetchProductsPage({
+      category: slug,
+      subcategory: selectedSubcategory,
+      page: nextPage,
+      pageSize: 10,
+      minPrice,
+      maxPrice,
+      minRating,
+      sortBy
+    });
+
+    setLoadedProducts((prev) => [...prev, ...(res.products || [])]);
+    setHasMore(res.hasMore || false);
+    setPage(nextPage);
+    setIsLoadingMore(false);
+  };
 
   if (!category) {
     return (
@@ -40,26 +97,12 @@ function CategoryContent({ slug }) {
     );
   }
 
-  const filtered = filterProducts({
-    products,
-    category: slug,
-    subcategory: selectedSubcategory,
-    minPrice,
-    maxPrice,
-    minRating,
-    sortBy
-  });
-
-  const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
-  const visibleProducts = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-
   const handleResetFilters = () => {
     setSelectedSubcategory("");
     setMinPrice(0);
     setMaxPrice(200000);
     setMinRating(0);
     setSortBy("popular");
-    setPage(1);
   };
 
   return (
@@ -96,7 +139,7 @@ function CategoryContent({ slug }) {
         </div>
 
         <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-xs font-bold text-amber-200">
-          Showing {filtered.length} products
+          Showing {loadedProducts.length} products
         </div>
       </div>
 
@@ -122,22 +165,14 @@ function CategoryContent({ slug }) {
 
         {/* Product Grid Area */}
         <div className="flex-1 w-full">
-          <ProductGrid products={visibleProducts} columns="3" isLoading={isLoading && visibleProducts.length === 0} />
-
-          {/* Pagination Controls */}
-          {filtered.length > itemsPerPage && (
-            <div className="mt-8 bg-white rounded-2xl p-4 border border-gray-100 shadow-xs">
-              <Pagination
-                currentPage={page}
-                totalPages={totalPages}
-                totalItems={filtered.length}
-                itemsPerPage={itemsPerPage}
-                onPageChange={setPage}
-                scrollToTop={true}
-                className="py-0"
-              />
-            </div>
-          )}
+          <ProductGrid
+            products={loadedProducts}
+            columns="3"
+            isLoading={isLoading}
+            onLoadMore={handleLoadMore}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+          />
         </div>
       </div>
     </div>

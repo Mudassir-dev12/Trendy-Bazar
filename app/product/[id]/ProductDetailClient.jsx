@@ -13,7 +13,7 @@ import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useToast } from "@/context/ToastContext";
 import { useProducts } from "@/context/ProductContext";
-import { getProductById, getRelatedProducts, formatPrice } from "@/lib/data";
+import { getProductById, fetchProductByIdOrSlug, getRelatedProducts, formatPrice } from "@/lib/data";
 import { buttonPressProps, springBounce } from "@/lib/motion";
 import { trackViewContent } from "@/lib/pixel";
 import {
@@ -30,16 +30,56 @@ import {
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80";
 
-export default function ProductDetailClient({ id }) {
+export default function ProductDetailClient({ id, initialProduct = null }) {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
 
-  const { products, isLoading } = useProducts();
+  const { products, isLoading: isContextLoading } = useProducts();
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { showToast } = useToast();
 
-  const product = getProductById(id, products);
+  const [product, setProduct] = useState(() => initialProduct || getProductById(id, products));
+  const [isFetchingSingle, setIsFetchingSingle] = useState(!product);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProduct() {
+      // 1. If initialProduct matches id or slug, use it
+      if (initialProduct && (String(initialProduct.id) === String(id) || initialProduct.slug === id)) {
+        if (isMounted) {
+          setProduct(initialProduct);
+          setIsFetchingSingle(false);
+        }
+        return;
+      }
+
+      // 2. Try context products
+      const matched = getProductById(id, products);
+      if (matched) {
+        if (isMounted) {
+          setProduct(matched);
+          setIsFetchingSingle(false);
+        }
+        return;
+      }
+
+      // 3. Async fetch from Supabase/local fallback
+      setIsFetchingSingle(true);
+      const fetched = await fetchProductByIdOrSlug(id);
+      if (isMounted) {
+        setProduct(fetched);
+        setIsFetchingSingle(false);
+      }
+    }
+
+    loadProduct();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id, products, initialProduct]);
 
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("details");
@@ -59,7 +99,7 @@ export default function ProductDetailClient({ id }) {
   }, [product?.id]);
 
   if (!product) {
-    if (isLoading) {
+    if (isContextLoading || isFetchingSingle) {
       return (
         <div className="max-w-7xl mx-auto px-4 py-8">
           <ProductDetailSkeleton />
@@ -126,7 +166,7 @@ export default function ProductDetailClient({ id }) {
       <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 border border-gray-100 shadow-xs grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Image Display with Crossfade */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="relative aspect-4/3 w-full bg-gray-50 rounded-2xl overflow-hidden border border-gray-100">
+          <div className="relative aspect-4/3 w-full bg-gray-50 rounded-none overflow-hidden border border-gray-100">
             <AnimatePresence mode="wait">
               <motion.img
                 key={imgSrc}
@@ -137,7 +177,7 @@ export default function ProductDetailClient({ id }) {
                 src={imgSrc}
                 alt={product.name}
                 onError={() => setImgSrc(FALLBACK_IMAGE)}
-                className="w-full h-full object-cover object-center"
+                className="w-full h-full object-contain object-center p-2"
                 suppressHydrationWarning
               />
             </AnimatePresence>
@@ -169,7 +209,7 @@ export default function ProductDetailClient({ id }) {
                 <button
                   key={idx}
                   onClick={() => setImgSrc(img)}
-                  className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
+                  className={`relative aspect-square rounded-none overflow-hidden border-2 transition-all cursor-pointer ${
                     imgSrc === img
                       ? "border-[#F58220] ring-2 ring-orange-200 shadow-md scale-105"
                       : "border-gray-200 hover:border-gray-300 opacity-75 hover:opacity-100"
@@ -178,7 +218,7 @@ export default function ProductDetailClient({ id }) {
                   <img
                     src={img || FALLBACK_IMAGE}
                     alt={`${product.name} view ${idx + 1}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain p-1"
                   />
                 </button>
               ))}
@@ -293,11 +333,11 @@ export default function ProductDetailClient({ id }) {
             </div>
             <div className="p-3 bg-gray-50 rounded-xl">
               <UilShieldCheck size={20} className="text-[#F58220] mx-auto mb-1" />
-              <span className="text-[11px] font-bold text-gray-700 block">2-Yr Warranty</span>
+              <span className="text-[11px] font-bold text-gray-700 block">Quality Verified</span>
             </div>
             <div className="p-3 bg-gray-50 rounded-xl">
               <UilSync size={20} className="text-[#F58220] mx-auto mb-1" />
-              <span className="text-[11px] font-bold text-gray-700 block">30-Day Return</span>
+              <span className="text-[11px] font-bold text-gray-700 block">14-Day Return</span>
             </div>
           </div>
         </div>

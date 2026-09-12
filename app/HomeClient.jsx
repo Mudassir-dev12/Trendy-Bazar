@@ -11,23 +11,53 @@ import PromoGrid from "@/components/PromoGrid";
 import FeaturedSplitSection from "@/components/FeaturedSplitSection";
 import FlashDeals from "@/components/FlashDeals";
 import ProductGrid from "@/components/ProductGrid";
-import Pagination from "@/components/Pagination";
 import { ScrollReveal } from "@/components/AnimatedComponents";
-import { getFeaturedProducts } from "@/lib/data";
 import { buttonPressProps } from "@/lib/motion";
 import { ArrowRight, Award, Star } from "lucide-react";
 
 export default function HomeClient() {
-  const { products, isLoading } = useProducts();
-  const [topPickPage, setTopPickPage] = useState(1);
-  const topPicksPerPage = 12;
+  const { products, isLoading, fetchProductsPage } = useProducts();
 
-  const featured = getFeaturedProducts(100, products);
-  const totalTopPickPages = Math.ceil(featured.length / topPicksPerPage) || 1;
-  const paginatedTopPicks = featured.slice(
-    (topPickPage - 1) * topPicksPerPage,
-    topPickPage * topPicksPerPage
-  );
+  const [topPickProducts, setTopPickProducts] = useState([]);
+  const [topPickPage, setTopPickPage] = useState(1);
+  const [hasMoreTopPicks, setHasMoreTopPicks] = useState(false);
+  const [isLoadingTopPicks, setIsLoadingTopPicks] = useState(true);
+  const [isLoadingMoreTopPicks, setIsLoadingMoreTopPicks] = useState(false);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function loadInitialTopPicks() {
+      setIsLoadingTopPicks(true);
+      setTopPickPage(1);
+      const res = await fetchProductsPage({
+        page: 1,
+        pageSize: 10
+      });
+      if (isMounted) {
+        setTopPickProducts(res.products || []);
+        setHasMoreTopPicks(res.hasMore || false);
+        setIsLoadingTopPicks(false);
+      }
+    }
+    loadInitialTopPicks();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleLoadMoreTopPicks = async () => {
+    if (isLoadingMoreTopPicks || !hasMoreTopPicks) return;
+    setIsLoadingMoreTopPicks(true);
+    const nextPage = topPickPage + 1;
+    const res = await fetchProductsPage({
+      page: nextPage,
+      pageSize: 10
+    });
+    setTopPickProducts((prev) => [...prev, ...(res.products || [])]);
+    setHasMoreTopPicks(res.hasMore || false);
+    setTopPickPage(nextPage);
+    setIsLoadingMoreTopPicks(false);
+  };
 
   const greatBrandsProducts = products.slice(0, 8).map((p, idx) => ({
     ...p,
@@ -102,7 +132,7 @@ export default function HomeClient() {
                   <Award className="w-4 h-4" /> Direct Bazaar Guarantee
                 </span>
                 <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-tight">
-                  Quality Guaranteed & Direct Manufacturer Warranty
+                  Quality Guaranteed & 14-Day Return Policy
                 </h2>
                 <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
                   Shop over 100+ high quality items across 16 subcategories with express dispatch and direct manufacturer support.
@@ -138,20 +168,14 @@ export default function HomeClient() {
               </div>
             </div>
 
-            <ProductGrid products={paginatedTopPicks} columns="4" isLoading={isLoading && paginatedTopPicks.length === 0} />
-
-            {featured.length > topPicksPerPage && (
-              <div className="mt-8 bg-white rounded-2xl p-4 border border-gray-100 shadow-xs">
-                <Pagination
-                  currentPage={topPickPage}
-                  totalPages={totalTopPickPages}
-                  totalItems={featured.length}
-                  itemsPerPage={topPicksPerPage}
-                  onPageChange={setTopPickPage}
-                  className="py-0"
-                />
-              </div>
-            )}
+            <ProductGrid
+              products={topPickProducts.length > 0 ? topPickProducts : products.slice(0, 10)}
+              columns="4"
+              isLoading={isLoadingTopPicks && topPickProducts.length === 0}
+              onLoadMore={handleLoadMoreTopPicks}
+              hasMore={hasMoreTopPicks}
+              isLoadingMore={isLoadingMoreTopPicks}
+            />
           </section>
         </ScrollReveal>
 

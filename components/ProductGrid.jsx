@@ -6,7 +6,16 @@ import ProductCard from "./ProductCard";
 import ProductCardSkeleton from "./ProductCardSkeleton";
 import { fadeUp } from "@/lib/motion";
 
-export default function ProductGrid({ products = [], title = "", subtitle = "", columns = "4", isLoading = false }) {
+export default function ProductGrid({
+  products = [],
+  title = "",
+  subtitle = "",
+  columns = "4",
+  isLoading = false,
+  onLoadMore = null,
+  hasMore = false,
+  isLoadingMore = false
+}) {
   const prefersReducedMotion = useReducedMotion();
 
   const colClassMap = {
@@ -58,11 +67,39 @@ export default function ProductGrid({ products = [], title = "", subtitle = "", 
           </p>
         </div>
       ) : (
-        <div className={`grid ${gridCols} gap-2.5 sm:gap-4 md:gap-6`}>
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        <>
+          <div className={`grid ${gridCols} gap-2.5 sm:gap-4 md:gap-6`}>
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+
+          {/* Load More Button */}
+          {onLoadMore && hasMore && (
+            <div className="mt-8 text-center">
+              <button
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+                className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 hover:from-black hover:to-black text-white px-8 py-3.5 rounded-full font-bold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Loading More...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Load More Products</span>
+                    <span className="text-[#F58220] font-black text-sm">↓</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
