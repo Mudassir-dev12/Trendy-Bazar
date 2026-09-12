@@ -80,7 +80,7 @@ export default function ProductCard({ product }) {
         }`}
       >
         <motion.div
-          animate={isFavorited ? { scale: [1, 1.25, 1] } : { scale: 1 }}
+          animate={{ scale: isFavorited ? 1.15 : 1 }}
           transition={springBounce}
         >
           <UilHeart
@@ -125,7 +125,7 @@ export default function ProductCard({ product }) {
           {/* Product Title */}
           <Link
             href={`/product/${product.id}`}
-            className="font-semibold text-gray-800 text-xs sm:text-sm hover:text-[#F58220] transition-colors line-clamp-2 leading-snug mb-1.5 block min-h-[2.4rem]"
+            className="font-semibold text-gray-800 text-xs sm:text-sm hover:text-[#F58220] transition-colors line-clamp-2 leading-snug mb-1.5 h-[2.5rem] overflow-hidden"
             title={product.name}
           >
             {product.name}

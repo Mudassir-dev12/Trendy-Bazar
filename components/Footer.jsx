@@ -92,22 +92,22 @@ export default function Footer() {
             <ul className="space-y-2 text-xs text-gray-400">
               <li>
                 <Link href="/category/smart-gadgets" className="hover:text-[#F58220] transition-colors">
-                  📱 Smart Gadgets
+                  Smart Gadgets
                 </Link>
               </li>
               <li>
                 <Link href="/category/home-essentials" className="hover:text-[#F58220] transition-colors">
-                  🏠 Home Essentials
+                  Home Essentials
                 </Link>
               </li>
               <li>
                 <Link href="/category/home-appliances" className="hover:text-[#F58220] transition-colors">
-                  ⚡ Home Appliances
+                  Home Appliances
                 </Link>
               </li>
               <li>
                 <Link href="/category/toys" className="hover:text-[#F58220] transition-colors">
-                  🧸 Toys & Games
+                  Toys & Games
                 </Link>
               </li>
             </ul>

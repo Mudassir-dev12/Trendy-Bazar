@@ -12,7 +12,7 @@ export default function ProductDetailSkeleton() {
       <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 border border-gray-100 shadow-xs grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Image Skeleton */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="relative aspect-4/3 w-full bg-gray-200 rounded-none overflow-hidden" />
+          <div className="relative aspect-square w-full bg-gray-200 rounded-none overflow-hidden" />
           <div className="grid grid-cols-5 gap-2.5 pt-1">
             {[1, 2, 3, 4, 5].map((n) => (
               <div key={n} className="aspect-square bg-gray-200 rounded-none" />

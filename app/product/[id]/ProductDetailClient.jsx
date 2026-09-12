@@ -25,7 +25,9 @@ import {
   UilSync,
   UilBolt,
   UilPlus,
-  UilMinus
+  UilMinus,
+  UilAngleDown,
+  UilAngleUp
 } from "@iconscout/react-unicons";
 
 const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80";
@@ -41,6 +43,7 @@ export default function ProductDetailClient({ id, initialProduct = null }) {
 
   const [product, setProduct] = useState(() => initialProduct || getProductById(id, products));
   const [isFetchingSingle, setIsFetchingSingle] = useState(!product);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -166,7 +169,7 @@ export default function ProductDetailClient({ id, initialProduct = null }) {
       <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 border border-gray-100 shadow-xs grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Image Display with Crossfade */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="relative aspect-4/3 w-full bg-gray-50 rounded-none overflow-hidden border border-gray-100">
+          <div className="relative aspect-square w-full bg-gray-50 rounded-none overflow-hidden border border-gray-100">
             <AnimatePresence mode="wait">
               <motion.img
                 key={imgSrc}
@@ -257,11 +260,6 @@ export default function ProductDetailClient({ id, initialProduct = null }) {
           <div className="bg-gray-50/80 rounded-2xl p-4 border border-gray-100 flex items-baseline gap-3">
             <CountUpPrice targetPrice={price} originalPrice={hasDiscount ? originalPrice : null} />
           </div>
-
-          {/* Short Description */}
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {product.description}
-          </p>
 
           {/* Quantity Selector & Action Buttons */}
           <div className="space-y-4 pt-2 border-t border-gray-100">
@@ -384,12 +382,34 @@ export default function ProductDetailClient({ id, initialProduct = null }) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-4 text-sm text-gray-600 leading-relaxed"
+                className="space-y-3"
               >
-                <p>{product.description}</p>
-                <p>
-                  Crafted with top-tier materials and rigorous quality testing, this product brings supreme efficiency and durability to your daily routine. Designed with direct customer feedback to ensure maximum utility and long-lasting satisfaction.
-                </p>
+                <div
+                  className={`text-sm text-gray-600 leading-relaxed space-y-3 transition-all duration-300 ${
+                    !isDescExpanded ? "line-clamp-4 overflow-hidden" : ""
+                  }`}
+                >
+                  <p>{product.description}</p>
+                  <p>
+                    Crafted with top-tier materials and rigorous quality testing, this product brings supreme efficiency and durability to your daily routine. Designed with direct customer feedback to ensure maximum utility and long-lasting satisfaction.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsDescExpanded(!isDescExpanded)}
+                  className="mt-2 text-xs font-extrabold text-[#F58220] hover:text-[#E06D0F] inline-flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-lg transition-colors border border-orange-100"
+                >
+                  {isDescExpanded ? (
+                    <>
+                      Show Less <UilAngleUp size={16} />
+                    </>
+                  ) : (
+                    <>
+                      Show More <UilAngleDown size={16} />
+                    </>
+                  )}
+                </button>
               </motion.div>
             )}
 
