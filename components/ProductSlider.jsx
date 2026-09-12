@@ -112,7 +112,7 @@ export default function ProductSlider({ title, subtitle, products = [], viewAllL
         <button
           onClick={() => scroll("left")}
           aria-label="Scroll left"
-          className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white shadow-lg border border-gray-200 text-gray-800 flex items-center justify-center hover:bg-gray-100 transition-all opacity-90 sm:opacity-0 sm:group-hover/slider:opacity-100"
+          className="hidden sm:flex absolute -left-3 top-[38%] -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-lg border border-gray-200 text-gray-800 items-center justify-center hover:bg-gray-100 hover:scale-105 transition-all sm:opacity-0 sm:group-hover/slider:opacity-100 cursor-pointer"
         >
           <UilAngleLeft size={20} />
         </button>
@@ -136,7 +136,7 @@ export default function ProductSlider({ title, subtitle, products = [], viewAllL
         <button
           onClick={() => scroll("right")}
           aria-label="Scroll right"
-          className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white shadow-lg border border-gray-200 text-gray-800 flex items-center justify-center hover:bg-gray-100 transition-all opacity-90 sm:opacity-0 sm:group-hover/slider:opacity-100"
+          className="hidden sm:flex absolute -right-3 top-[38%] -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-lg border border-gray-200 text-gray-800 items-center justify-center hover:bg-gray-100 hover:scale-105 transition-all sm:opacity-0 sm:group-hover/slider:opacity-100 cursor-pointer"
         >
           <UilAngleRight size={20} />
         </button>

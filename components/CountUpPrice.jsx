@@ -42,7 +42,7 @@ export default function CountUpPrice({ targetPrice, originalPrice, duration = 60
   return (
     <div className={`flex items-baseline gap-2 flex-wrap ${className}`} suppressHydrationWarning>
       {/* Active Price */}
-      <span className="text-lg font-black text-gray-900" suppressHydrationWarning>
+      <span className="text-base sm:text-lg font-black text-gray-900 whitespace-nowrap" suppressHydrationWarning>
         {formatPrice(currentValue)}
       </span>
 

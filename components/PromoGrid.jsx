@@ -140,12 +140,6 @@ export default function PromoGrid() {
                 <h4 className="text-xs sm:text-base font-black text-white leading-tight">
                   14-Day Hassle-Free Return
                 </h4>
-                <Link
-                  href="/category/smart-gadgets"
-                  className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-bold text-white/90 underline hover:text-white transition-colors"
-                >
-                  <span>Learn details</span>
-                </Link>
               </div>
 
               <div className="mt-3 z-10 flex items-center justify-between bg-black/20 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 border border-white/20">

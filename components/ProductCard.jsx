@@ -125,7 +125,7 @@ export default function ProductCard({ product }) {
           {/* Product Title */}
           <Link
             href={`/product/${product.id}`}
-            className="font-semibold text-gray-800 text-xs sm:text-sm hover:text-[#F58220] transition-colors line-clamp-2 leading-snug mb-1.5 h-[2.5rem] overflow-hidden"
+            className="font-semibold text-gray-800 text-xs sm:text-sm hover:text-[#F58220] transition-colors line-clamp-2 leading-snug mb-1.5 min-h-[2.6rem] sm:min-h-[2.5rem] max-h-[2.7rem] sm:max-h-[2.6rem] overflow-hidden"
             title={product.name}
           >
             {product.name}
