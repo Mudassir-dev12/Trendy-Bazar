@@ -36,9 +36,10 @@ const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1526170375885-4d8ecf77
 
 export default function AdminPage() {
   const {
-    products,
-    orders,
-    isLoading,
+    fetchAdminProductsPage,
+    fetchAdminOrdersPage,
+    fetchAdminMetrics,
+    clearAdminCache,
     addProduct,
     editProduct,
     updateStock,
@@ -119,12 +120,129 @@ export default function AdminPage() {
   };
 
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, orders
-  const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
   const [viewingOrder, setViewingOrder] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Metrics State (computed via lightweight aggregate queries)
+  const [metrics, setMetrics] = useState({
+    totalProducts: 0,
+    outOfStockCount: 0,
+    totalOrders: 0,
+    totalRevenue: 0
+  });
+
+  const loadMetrics = async () => {
+    const data = await fetchAdminMetrics();
+    setMetrics(data);
+  };
+
+  // Products Table State (Server-side paginated)
+  const [adminProducts, setAdminProducts] = useState([]);
+  const [prodTotalCount, setProdTotalCount] = useState(0);
+  const [prodTotalPages, setProdTotalPages] = useState(1);
+  const [prodPage, setProdPage] = useState(1);
+  const [prodPerPage, setProdPerPage] = useState(10);
+  const [isProdLoading, setIsProdLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
+
+  const loadAdminProducts = async () => {
+    setIsProdLoading(true);
+    const res = await fetchAdminProductsPage({
+      page: prodPage,
+      pageSize: prodPerPage,
+      search: searchTerm,
+      category: categoryFilter,
+      lowStockOnly
+    });
+    setAdminProducts(res.products || []);
+    setProdTotalCount(res.totalCount || 0);
+    setProdTotalPages(res.totalPages || 1);
+    setIsProdLoading(false);
+  };
+
+  // Orders Table State (Server-side paginated)
+  const [adminOrders, setAdminOrders] = useState([]);
+  const [orderTotalCount, setOrderTotalCount] = useState(0);
+  const [orderTotalPages, setOrderTotalPages] = useState(1);
+  const [orderPage, setOrderPage] = useState(1);
+  const [orderPerPage, setOrderPerPage] = useState(10);
+  const [isOrderLoading, setIsOrderLoading] = useState(true);
+  const [orderSearchTerm, setOrderSearchTerm] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("All");
+
+  const loadAdminOrders = async () => {
+    setIsOrderLoading(true);
+    const res = await fetchAdminOrdersPage({
+      page: orderPage,
+      pageSize: orderPerPage,
+      search: orderSearchTerm,
+      statusFilter: orderStatusFilter
+    });
+    setAdminOrders(res.orders || []);
+    setOrderTotalCount(res.totalCount || 0);
+    setOrderTotalPages(res.totalPages || 1);
+    setIsOrderLoading(false);
+  };
+
+  // Effects for initial metrics and paginated fetches
+  useEffect(() => {
+    if (isAdminAuthenticated) {
+      loadMetrics();
+    }
+  }, [isAdminAuthenticated]);
+
+  useEffect(() => {
+    if (isAdminAuthenticated) {
+      loadAdminProducts();
+    }
+  }, [isAdminAuthenticated, prodPage, prodPerPage, searchTerm, categoryFilter, lowStockOnly]);
+
+  useEffect(() => {
+    if (isAdminAuthenticated && activeTab === "orders") {
+      loadAdminOrders();
+    }
+  }, [isAdminAuthenticated, activeTab, orderPage, orderPerPage, orderSearchTerm, orderStatusFilter]);
+
+  // Optimistic Row Actions
+  const handleUpdateStock = async (id, newStock) => {
+    const stockNum = parseInt(newStock, 10) || 0;
+    setAdminProducts((prev) =>
+      prev.map((p) => (String(p.id) === String(id) ? { ...p, stock: stockNum } : p))
+    );
+    await updateStock(id, stockNum);
+    clearAdminCache();
+    loadMetrics();
+  };
+
+  const handleUpdateStatus = async (orderId, newStatus) => {
+    setAdminOrders((prev) =>
+      prev.map((o) => (String(o.id) === String(orderId) ? { ...o, status: newStatus } : o))
+    );
+    await updateStatus(orderId, newStatus);
+    clearAdminCache();
+    loadMetrics();
+  };
+
+  const handleDeleteProduct = async (id) => {
+    setAdminProducts((prev) => prev.filter((p) => String(p.id) !== String(id)));
+    await deleteProduct(id);
+    clearAdminCache();
+    loadAdminProducts();
+    loadMetrics();
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    setAdminOrders((prev) => prev.filter((o) => String(o.id) !== String(orderId)));
+    await deleteOrder(orderId);
+    clearAdminCache();
+    loadAdminOrders();
+    loadMetrics();
+  };
 
   // New product form state
   const [formData, setFormData] = useState({
@@ -143,39 +261,6 @@ export default function AdminPage() {
     isFlashDeal: false,
     isFeatured: false
   });
-
-  // Calculate Metrics
-  const totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.totalAmount || o.total || 0)), 0);
-  const totalOrders = orders.length;
-  const totalProducts = products.length;
-  const outOfStockCount = products.filter((p) => (parseInt(p.stock, 10) <= 0 || !p.stock)).length;
-
-  // Pagination State
-  const [prodPage, setProdPage] = useState(1);
-  const [prodPerPage, setProdPerPage] = useState(10);
-  const [orderPage, setOrderPage] = useState(1);
-  const [orderPerPage, setOrderPerPage] = useState(10);
-
-  // Filter products by search term
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(p.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Paginated slices
-  const totalProdPages = Math.ceil(filteredProducts.length / prodPerPage) || 1;
-  const paginatedProducts = filteredProducts.slice(
-    (prodPage - 1) * prodPerPage,
-    prodPage * prodPerPage
-  );
-
-  const totalOrderPages = Math.ceil(orders.length / orderPerPage) || 1;
-  const paginatedOrders = orders.slice(
-    (orderPage - 1) * orderPerPage,
-    orderPage * orderPerPage
-  );
 
   // Client-side HTML5 canvas image compressor (shrinks multi-MB files to ~30KB)
   const compressImageFile = (file, maxWidth = 800, quality = 0.75) => {
@@ -305,7 +390,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleCreateProduct = (e) => {
+  const handleCreateProduct = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.price) return;
     
@@ -317,7 +402,8 @@ export default function AdminPage() {
       images: formData.images && formData.images.length > 0 ? formData.images : [primaryImg]
     };
 
-    addProduct(finalProduct);
+    await addProduct(finalProduct);
+    clearAdminCache();
     setShowAddModal(false);
     setFormData({
       name: "",
@@ -335,9 +421,12 @@ export default function AdminPage() {
       isFlashDeal: false,
       isFeatured: false
     });
+    setProdPage(1);
+    loadAdminProducts();
+    loadMetrics();
   };
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (!editingProduct) return;
     const primaryImg = editingProduct.image || (editingProduct.images && editingProduct.images[0]) || FALLBACK_IMAGE;
@@ -346,13 +435,17 @@ export default function AdminPage() {
       image: primaryImg,
       images: editingProduct.images && editingProduct.images.length > 0 ? editingProduct.images : [primaryImg]
     };
-    editProduct(editingProduct.id, finalEdit);
+    await editProduct(editingProduct.id, finalEdit);
+    clearAdminCache();
     setEditingProduct(null);
+    loadAdminProducts();
+    loadMetrics();
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await refreshData();
+    clearAdminCache();
+    await Promise.all([loadAdminProducts(), loadAdminOrders(), loadMetrics()]);
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -473,7 +566,7 @@ export default function AdminPage() {
               : "border-transparent text-gray-500 hover:text-gray-900"
           }`}
         >
-          <UilBox size={16} /> Dashboard & Inventory ({products.length})
+          <UilBox size={16} /> Dashboard & Inventory ({metrics.totalProducts})
         </button>
         <button
           onClick={() => setActiveTab("orders")}
@@ -483,7 +576,7 @@ export default function AdminPage() {
               : "border-transparent text-gray-500 hover:text-gray-900"
           }`}
         >
-          <UilClock size={16} /> Customer Orders ({orders.length})
+          <UilClock size={16} /> Customer Orders Log ({metrics.totalOrders})
         </button>
       </div>
 
@@ -491,10 +584,7 @@ export default function AdminPage() {
       {/* UNIFIED TAB 1: DASHBOARD & INVENTORY */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "dashboard" && (
-        isLoading && products.length === 0 ? (
-          <AdminTableSkeleton rows={prodPerPage} type="products" />
-        ) : (
-          <div className="space-y-6">
+        <div className="space-y-6">
           {/* Metrics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center gap-4">
@@ -503,7 +593,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <span className="text-xs text-gray-400 font-bold uppercase">Total Revenue</span>
-                <h3 className="text-2xl font-black text-gray-900">{formatPrice(totalRevenue)}</h3>
+                <h3 className="text-2xl font-black text-gray-900">{formatPrice(metrics.totalRevenue)}</h3>
               </div>
             </div>
 
@@ -513,7 +603,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <span className="text-xs text-gray-400 font-bold uppercase">Total Orders</span>
-                <h3 className="text-2xl font-black text-gray-900">{totalOrders}</h3>
+                <h3 className="text-2xl font-black text-gray-900">{metrics.totalOrders}</h3>
               </div>
             </div>
 
@@ -523,7 +613,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <span className="text-xs text-gray-400 font-bold uppercase">Total Products</span>
-                <h3 className="text-2xl font-black text-gray-900">{totalProducts}</h3>
+                <h3 className="text-2xl font-black text-gray-900">{metrics.totalProducts}</h3>
               </div>
             </div>
 
@@ -532,8 +622,8 @@ export default function AdminPage() {
                 <UilExclamationTriangle size={24} />
               </div>
               <div>
-                <span className="text-xs text-gray-400 font-bold uppercase">Out of Stock Items</span>
-                <h3 className="text-2xl font-black text-gray-900">{outOfStockCount}</h3>
+                <span className="text-xs text-gray-400 font-bold uppercase">Out of Stock / Low Stock</span>
+                <h3 className="text-2xl font-black text-gray-900">{metrics.outOfStockCount}</h3>
               </div>
             </div>
           </div>
@@ -542,17 +632,51 @@ export default function AdminPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-xs">
             <div>
               <h3 className="font-extrabold text-gray-900 text-base">Product Inventory Management</h3>
-              <p className="text-xs text-gray-500">Live multi-device real-time synchronization</p>
+              <p className="text-xs text-gray-500">Paginated server-side search & fast egress-saving queries</p>
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              {/* Category Filter Dropdown */}
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setProdPage(1);
+                }}
+                className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-700 outline-hidden"
+              >
+                <option value="">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.slug}>{c.name}</option>
+                ))}
+              </select>
+
+              {/* Low Stock Toggle Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setLowStockOnly(!lowStockOnly);
+                  setProdPage(1);
+                }}
+                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                  lowStockOnly
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                }`}
+              >
+                {lowStockOnly ? "Showing Low Stock" : "Filter Low Stock"}
+              </button>
+
               <div className="relative w-full sm:w-64">
                 <UilSearch size={16} className="text-gray-400 absolute left-3 top-3" />
                 <input
                   type="text"
-                  placeholder="Search by name, ID or category..."
+                  placeholder="Search by title, ID or category..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setProdPage(1);
+                  }}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold focus:border-[#F58220] outline-hidden"
                 />
               </div>
@@ -566,278 +690,334 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Products Table */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider">
-                    <th className="p-3.5">Product</th>
-                    <th className="p-3.5">Category</th>
-                    <th className="p-3.5">Price</th>
-                    <th className="p-3.5">Original Price</th>
-                    <th className="p-3.5">Discount</th>
-                    <th className="p-3.5">Stock</th>
-                    <th className="p-3.5">Flags</th>
-                    <th className="p-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {paginatedProducts.map((product) => {
-                    const price = product.price || 0;
-                    const origPrice = product.originalPrice && product.originalPrice > price ? product.originalPrice : null;
-                    const discountPct = origPrice ? Math.round(((origPrice - price) / origPrice) * 100) : (product.discount || 0);
-
-                    return (
-                    <tr key={product.id} className="hover:bg-gray-50/60 transition-colors">
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={product.image || FALLBACK_IMAGE}
-                            alt={product.name}
-                            onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
-                            className="w-10 h-10 object-cover rounded-lg border shrink-0"
-                            suppressHydrationWarning
-                          />
-                          <div>
-                            <span className="font-bold text-gray-900 block truncate max-w-xs">{product.name}</span>
-                            <span className="text-[10px] text-gray-400 font-mono">ID: {product.id}</span>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="p-3.5 capitalize font-semibold text-gray-700">
-                        {product.subcategory?.replace(/-/g, " ") || product.category?.replace(/-/g, " ")}
-                      </td>
-
-                      <td className="p-3.5 font-extrabold text-[#F58220]">
-                        {formatPrice(product.price)}
-                      </td>
-
-                      <td className="p-3.5 text-gray-400 font-medium">
-                        {origPrice ? <span className="line-through">{formatPrice(origPrice)}</span> : <span className="text-gray-300">-</span>}
-                      </td>
-
-                      <td className="p-3.5 font-bold">
-                        {discountPct > 0 ? (
-                          <span className="bg-green-100 text-green-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-sm">
-                            {discountPct}% OFF
-                          </span>
-                        ) : (
-                          <span className="text-gray-300">-</span>
-                        )}
-                      </td>
-
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            min="0"
-                            value={product.stock}
-                            onChange={(e) => updateStock(product.id, e.target.value)}
-                            className="w-16 bg-gray-50 border border-gray-200 rounded-md text-xs font-extrabold p-1 text-center"
-                          />
-                          {parseInt(product.stock, 10) <= 0 ? (
-                            <span className="text-[10px] bg-red-100 text-red-800 font-bold px-1.5 py-0.5 rounded-sm">Out of Stock</span>
-                          ) : product.stock <= 10 ? (
-                            <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-sm">Low</span>
-                          ) : null}
-                        </div>
-                      </td>
-
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-1">
-                          {product.isFlashDeal && (
-                            <span className="bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-sm uppercase">Flash</span>
-                          )}
-                          {product.isFeatured && (
-                            <span className="bg-orange-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-sm uppercase">Featured</span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setViewingProduct({ ...product })}
-                            className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                            title="View Product Details"
-                          >
-                            <UilEye size={16} />
-                          </button>
-                          <button
-                            onClick={() => setEditingProduct({ ...product })}
-                            className="p-1.5 text-gray-600 hover:text-[#F58220] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
-                            title="Edit Product Details"
-                          >
-                            <UilEdit size={16} />
-                          </button>
-                          <button
-                            onClick={() => deleteProduct(product.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="Delete Product"
-                          >
-                            <UilTrashAlt size={16} />
-                          </button>
-                        </div>
-                      </td>
+          {/* Products Table Container */}
+          {isProdLoading ? (
+            <AdminTableSkeleton rows={prodPerPage} type="products" />
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider">
+                      <th className="p-3.5">Product</th>
+                      <th className="p-3.5">Category</th>
+                      <th className="p-3.5">Price</th>
+                      <th className="p-3.5">Original Price</th>
+                      <th className="p-3.5">Discount</th>
+                      <th className="p-3.5">Stock</th>
+                      <th className="p-3.5">Flags</th>
+                      <th className="p-3.5 text-right">Actions</th>
                     </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {adminProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="text-center py-10 text-gray-500 font-medium">
+                          No products found for the active filter/search.
+                        </td>
+                      </tr>
+                    ) : (
+                      adminProducts.map((product) => {
+                        const price = product.price || 0;
+                        const origPrice = product.originalPrice && product.originalPrice > price ? product.originalPrice : null;
+                        const discountPct = origPrice ? Math.round(((origPrice - price) / origPrice) * 100) : (product.discount || 0);
 
-            {/* Products Table Pagination Bar */}
-            <div className="p-3.5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold">
-                <span>Items per page:</span>
-                <select
-                  value={prodPerPage}
-                  onChange={(e) => {
-                    setProdPerPage(Number(e.target.value));
-                    setProdPage(1);
-                  }}
-                  className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700 outline-hidden"
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
+                        return (
+                          <tr key={product.id} className="hover:bg-gray-50/60 transition-colors">
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={product.image || FALLBACK_IMAGE}
+                                  alt={product.name}
+                                  onError={(e) => { e.currentTarget.src = FALLBACK_IMAGE; }}
+                                  className="w-10 h-10 object-cover rounded-lg border shrink-0"
+                                  suppressHydrationWarning
+                                />
+                                <div>
+                                  <span className="font-bold text-gray-900 block truncate max-w-xs">{product.name}</span>
+                                  <span className="text-[10px] text-gray-400 font-mono">ID: {product.id}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="p-3.5 capitalize font-semibold text-gray-700">
+                              {product.subcategory?.replace(/-/g, " ") || product.category?.replace(/-/g, " ")}
+                            </td>
+
+                            <td className="p-3.5 font-extrabold text-[#F58220]">
+                              {formatPrice(product.price)}
+                            </td>
+
+                            <td className="p-3.5 text-gray-400 font-medium">
+                              {origPrice ? <span className="line-through">{formatPrice(origPrice)}</span> : <span className="text-gray-300">-</span>}
+                            </td>
+
+                            <td className="p-3.5 font-bold">
+                              {discountPct > 0 ? (
+                                <span className="bg-green-100 text-green-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-sm">
+                                  {discountPct}% OFF
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
+                            </td>
+
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={product.stock}
+                                  onChange={(e) => handleUpdateStock(product.id, e.target.value)}
+                                  className="w-16 bg-gray-50 border border-gray-200 rounded-md text-xs font-extrabold p-1 text-center"
+                                />
+                                {parseInt(product.stock, 10) <= 0 ? (
+                                  <span className="text-[10px] bg-red-100 text-red-800 font-bold px-1.5 py-0.5 rounded-sm">Out of Stock</span>
+                                ) : product.stock <= 5 ? (
+                                  <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-sm">Low</span>
+                                ) : null}
+                              </div>
+                            </td>
+
+                            <td className="p-3.5">
+                              <div className="flex items-center gap-1">
+                                {product.isFlashDeal && (
+                                  <span className="bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-sm uppercase">Flash</span>
+                                )}
+                                {product.isFeatured && (
+                                  <span className="bg-orange-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-sm uppercase">Featured</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="p-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => setViewingProduct({ ...product })}
+                                  className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                  title="View Product Details"
+                                >
+                                  <UilEye size={16} />
+                                </button>
+                                <button
+                                  onClick={() => setEditingProduct({ ...product })}
+                                  className="p-1.5 text-gray-600 hover:text-[#F58220] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Edit Product Details"
+                                >
+                                  <UilEdit size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(product.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete Product"
+                                >
+                                  <UilTrashAlt size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
 
-              <Pagination
-                currentPage={prodPage}
-                totalPages={totalProdPages}
-                totalItems={filteredProducts.length}
-                itemsPerPage={prodPerPage}
-                onPageChange={setProdPage}
-                alwaysShow={true}
-                className="py-0 px-0"
-              />
+              {/* Products Table Pagination Bar */}
+              <div className="p-3.5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold">
+                  <span>Items per page:</span>
+                  <select
+                    value={prodPerPage}
+                    onChange={(e) => {
+                      setProdPerPage(Number(e.target.value));
+                      setProdPage(1);
+                    }}
+                    className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700 outline-hidden"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+
+                <Pagination
+                  currentPage={prodPage}
+                  totalPages={prodTotalPages}
+                  totalItems={prodTotalCount}
+                  itemsPerPage={prodPerPage}
+                  onPageChange={setProdPage}
+                  alwaysShow={true}
+                  className="py-0 px-0"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
-        )
       )}
 
       {/* ------------------------------------------------------------------ */}
       {/* TAB 2: CUSTOMER ORDERS */}
       {/* ------------------------------------------------------------------ */}
       {activeTab === "orders" && (
-        isLoading && orders.length === 0 ? (
-          <AdminTableSkeleton rows={orderPerPage} type="orders" />
-        ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-extrabold text-gray-900 text-sm">Customer Orders Log</h3>
-            <span className="text-xs text-gray-500">Updated in real-time</span>
-          </div>
-
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider">
-                  <th className="p-3.5">Order ID</th>
-                  <th className="p-3.5">Date</th>
-                  <th className="p-3.5">Customer</th>
-                  <th className="p-3.5">Items</th>
-                  <th className="p-3.5">Total Amount</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {paginatedOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50/60 transition-colors">
-                    <td className="p-3.5 font-bold font-mono text-gray-900">{order.id}</td>
-                    <td className="p-3.5 text-gray-500">{order.date ? new Date(order.date).toLocaleDateString() : 'Recent'}</td>
-                    <td className="p-3.5">
-                      <span className="font-bold text-gray-800 block">{order.customerName || order.customer?.name || "Customer"}</span>
-                      <span className="text-[10px] text-gray-400">{order.customerEmail || order.customer?.email}</span>
-                    </td>
-                    <td className="p-3.5 font-medium text-gray-600">
-                      {order.items?.length || 0} items
-                    </td>
-                    <td className="p-3.5 font-extrabold text-gray-900">
-                      {formatPrice(parseFloat(order.totalAmount || order.total || 0))}
-                    </td>
-                    <td className="p-3.5">
-                      <select
-                        value={order.status}
-                        onChange={(e) => updateStatus(order.id, e.target.value)}
-                        className={`text-xs font-bold rounded-lg px-2.5 py-1 border outline-hidden ${
-                          order.status === "Delivered"
-                            ? "bg-green-50 text-green-700 border-green-200"
-                            : order.status === "Shipped"
-                            ? "bg-blue-50 text-blue-700 border-blue-200"
-                            : order.status === "Processing"
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-orange-50 text-orange-700 border-orange-200"
-                        }`}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Processing">Processing</option>
-                        <option value="Shipped">Shipped</option>
-                        <option value="Delivered">Delivered</option>
-                      </select>
-                    </td>
-                    <td className="p-3.5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setViewingOrder(order)}
-                          className="p-1.5 text-[#F58220] hover:bg-orange-50 rounded-lg transition-colors font-bold flex items-center gap-1 cursor-pointer"
-                          title="View Order Details"
-                        >
-                          <UilEye size={16} /> View
-                        </button>
-                        <button
-                          onClick={() => deleteOrder(order.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="Delete Order"
-                        >
-                          <UilTrashAlt size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Orders Table Pagination Bar */}
-          <div className="p-3.5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold">
-              <span>Orders per page:</span>
-              <select
-                value={orderPerPage}
-                onChange={(e) => {
-                  setOrderPerPage(Number(e.target.value));
-                  setOrderPage(1);
-                }}
-                className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700 outline-hidden"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
+        <div className="space-y-4">
+          {/* Orders Toolbar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-gray-100 shadow-xs">
+            <div>
+              <h3 className="font-extrabold text-gray-900 text-sm">Customer Orders Log</h3>
+              <p className="text-xs text-gray-500">Paginated order processing & status updates</p>
             </div>
 
-            <Pagination
-              currentPage={orderPage}
-              totalPages={totalOrderPages}
-              totalItems={orders.length}
-              itemsPerPage={orderPerPage}
-              onPageChange={setOrderPage}
-              alwaysShow={true}
-              className="py-0 px-0"
-            />
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <select
+                value={orderStatusFilter}
+                onChange={(e) => {
+                  setOrderStatusFilter(e.target.value);
+                  setOrderPage(1);
+                }}
+                className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-700 outline-hidden"
+              >
+                <option value="All">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+              </select>
+
+              <div className="relative w-full sm:w-64">
+                <UilSearch size={16} className="text-gray-400 absolute left-3 top-3" />
+                <input
+                  type="text"
+                  placeholder="Search by Order ID or Customer..."
+                  value={orderSearchTerm}
+                  onChange={(e) => {
+                    setOrderSearchTerm(e.target.value);
+                    setOrderPage(1);
+                  }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold focus:border-[#F58220] outline-hidden"
+                />
+              </div>
+            </div>
           </div>
+
+          {/* Orders Table Container */}
+          {isOrderLoading ? (
+            <AdminTableSkeleton rows={orderPerPage} type="orders" />
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider">
+                      <th className="p-3.5">Order ID</th>
+                      <th className="p-3.5">Date</th>
+                      <th className="p-3.5">Customer</th>
+                      <th className="p-3.5">Items</th>
+                      <th className="p-3.5">Total Amount</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {adminOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-10 text-gray-500 font-medium">
+                          No orders found matching the criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      adminOrders.map((order) => (
+                        <tr key={order.id} className="hover:bg-gray-50/60 transition-colors">
+                          <td className="p-3.5 font-bold font-mono text-gray-900">{order.id}</td>
+                          <td className="p-3.5 text-gray-500">{order.date ? new Date(order.date).toLocaleDateString() : 'Recent'}</td>
+                          <td className="p-3.5">
+                            <span className="font-bold text-gray-800 block">{order.customerName || order.customer?.name || "Customer"}</span>
+                            <span className="text-[10px] text-gray-400">{order.customerEmail || order.customer?.email}</span>
+                          </td>
+                          <td className="p-3.5 font-medium text-gray-600">
+                            {order.items?.length || 0} items
+                          </td>
+                          <td className="p-3.5 font-extrabold text-gray-900">
+                            {formatPrice(parseFloat(order.totalAmount || order.total || 0))}
+                          </td>
+                          <td className="p-3.5">
+                            <select
+                              value={order.status}
+                              onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
+                              className={`text-xs font-bold rounded-lg px-2.5 py-1 border outline-hidden ${
+                                order.status === "Delivered" || order.status === "delivered"
+                                  ? "bg-green-50 text-green-700 border-green-200"
+                                  : order.status === "Shipped" || order.status === "shipped"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : order.status === "Processing" || order.status === "processing"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-orange-50 text-orange-700 border-orange-200"
+                              }`}
+                            >
+                              <option value="Pending">Pending</option>
+                              <option value="Processing">Processing</option>
+                              <option value="Shipped">Shipped</option>
+                              <option value="Delivered">Delivered</option>
+                            </select>
+                          </td>
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => setViewingOrder(order)}
+                                className="p-1.5 text-[#F58220] hover:bg-orange-50 rounded-lg transition-colors font-bold flex items-center gap-1 cursor-pointer"
+                                title="View Order Details"
+                              >
+                                <UilEye size={16} /> View
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOrder(order.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Order"
+                              >
+                                <UilTrashAlt size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Orders Table Pagination Bar */}
+              <div className="p-3.5 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-xs text-gray-500 font-semibold">
+                  <span>Orders per page:</span>
+                  <select
+                    value={orderPerPage}
+                    onChange={(e) => {
+                      setOrderPerPage(Number(e.target.value));
+                      setOrderPage(1);
+                    }}
+                    className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700 outline-hidden"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+
+                <Pagination
+                  currentPage={orderPage}
+                  totalPages={orderTotalPages}
+                  totalItems={orderTotalCount}
+                  itemsPerPage={orderPerPage}
+                  onPageChange={setOrderPage}
+                  alwaysShow={true}
+                  className="py-0 px-0"
+                />
+              </div>
+            </div>
+          )}
         </div>
-        )
       )}
 
       {/* ------------------------------------------------------------------ */}

@@ -19,14 +19,18 @@ const ProductContext = createContext();
 const SELECT_FIELDS = "id, title, slug, category, subcategory, price, original_price, discount, rating, reviews_count, image, stock, is_featured, badge";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-// In-memory cache map
+// In-memory cache maps
 const memoryCache = new Map();
+const adminProductsCache = new Map();
+const adminOrdersCache = new Map();
 
 /**
  * Clear memory and sessionStorage cache for products
  */
 export function clearProductCache() {
   memoryCache.clear();
+  adminProductsCache.clear();
+  adminOrdersCache.clear();
   if (typeof window !== "undefined") {
     try {
       const keysToRemove = [];
@@ -41,6 +45,11 @@ export function clearProductCache() {
       console.warn("Error clearing sessionStorage product cache:", e);
     }
   }
+}
+
+export function clearAdminCache() {
+  adminProductsCache.clear();
+  adminOrdersCache.clear();
 }
 
 
@@ -251,8 +260,214 @@ export function ProductProvider({ children }) {
     return { products: sliced, hasMore, fromCache: false };
   };
 
+  /**
+   * Admin Paginated Products Fetching with In-Memory Caching
+   */
+  const fetchAdminProductsPage = async ({
+    page = 1,
+    pageSize = 10,
+    search = "",
+    category = "",
+    lowStockOnly = false
+  } = {}) => {
+    const cacheKey = `admin_prod_${page}_${pageSize}_${encodeURIComponent(search)}_${category}_${lowStockOnly}`;
+    if (adminProductsCache.has(cacheKey)) {
+      return adminProductsCache.get(cacheKey);
+    }
+
+    if (isSupabaseConfigured) {
+      try {
+        let q = supabase
+          .from("products")
+          .select(SELECT_FIELDS, { count: "exact" })
+          .order("created_at", { ascending: false });
+
+        if (category) {
+          q = q.eq("category", category);
+        }
+        if (lowStockOnly) {
+          q = q.lte("stock", 5);
+        }
+        if (search && search.trim()) {
+          const s = search.trim();
+          q = q.or(`title.ilike.%${s}%,category.ilike.%${s}%,id.ilike.%${s}%`);
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        q = q.range(from, to);
+
+        const { data: sbProducts, count, error } = await q;
+
+        if (!error && Array.isArray(sbProducts)) {
+          const mapped = sbProducts.map(mapSupabaseProductToFrontend);
+          const totalCount = count !== null ? count : mapped.length;
+          const totalPages = Math.ceil(totalCount / pageSize) || 1;
+          const result = { products: mapped, totalCount, totalPages, page, pageSize };
+          adminProductsCache.set(cacheKey, result);
+          return result;
+        }
+      } catch (err) {
+        console.warn("Supabase fetchAdminProductsPage error:", err);
+      }
+    }
+
+    // Fallback: local products filtering
+    const allLocal = products.length > 0 ? products : getProducts();
+    let filtered = allLocal.filter((p) => {
+      let matches = true;
+      if (category) matches = matches && p.category === category;
+      if (lowStockOnly) matches = matches && (p.stock <= 5 || !p.stock);
+      if (search && search.trim()) {
+        const s = search.toLowerCase().trim();
+        matches =
+          matches &&
+          (p.name?.toLowerCase().includes(s) ||
+            p.category?.toLowerCase().includes(s) ||
+            String(p.id).toLowerCase().includes(s));
+      }
+      return matches;
+    });
+
+    const totalCount = filtered.length;
+    const totalPages = Math.ceil(totalCount / pageSize) || 1;
+    const from = (page - 1) * pageSize;
+    const sliced = filtered.slice(from, from + pageSize);
+    const result = { products: sliced, totalCount, totalPages, page, pageSize };
+    adminProductsCache.set(cacheKey, result);
+    return result;
+  };
+
+  /**
+   * Admin Paginated Orders Fetching with In-Memory Caching
+   */
+  const fetchAdminOrdersPage = async ({
+    page = 1,
+    pageSize = 10,
+    search = "",
+    statusFilter = ""
+  } = {}) => {
+    const cacheKey = `admin_ord_${page}_${pageSize}_${encodeURIComponent(search)}_${statusFilter}`;
+    if (adminOrdersCache.has(cacheKey)) {
+      return adminOrdersCache.get(cacheKey);
+    }
+
+    if (isSupabaseConfigured) {
+      try {
+        let q = supabase
+          .from("orders")
+          .select("*, order_items(*)", { count: "exact" })
+          .order("created_at", { ascending: false });
+
+        if (statusFilter && statusFilter !== "All") {
+          q = q.eq("status", statusFilter.toLowerCase());
+        }
+        if (search && search.trim()) {
+          const s = search.trim();
+          q = q.or(`order_number.ilike.%${s}%,customer_name.ilike.%${s}%,customer_email.ilike.%${s}%`);
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        q = q.range(from, to);
+
+        const { data: sbOrders, count, error } = await q;
+
+        if (!error && Array.isArray(sbOrders)) {
+          const mappedOrders = sbOrders.map((o) => ({
+            id: o.order_number || o.id,
+            date: o.created_at,
+            customerName: o.customer_name,
+            customerEmail: o.customer_email,
+            customerPhone: o.customer_phone,
+            shippingAddress: o.shipping_address,
+            city: o.city,
+            paymentMethod: o.payment_method,
+            totalAmount: parseFloat(o.total_amount),
+            status: o.status,
+            customer: {
+              name: o.customer_name,
+              email: o.customer_email,
+              phone: o.customer_phone,
+              address: o.shipping_address,
+              city: o.city
+            },
+            items: o.order_items || []
+          }));
+
+          const totalCount = count !== null ? count : mappedOrders.length;
+          const totalPages = Math.ceil(totalCount / pageSize) || 1;
+          const result = { orders: mappedOrders, totalCount, totalPages, page, pageSize };
+          adminOrdersCache.set(cacheKey, result);
+          return result;
+        }
+      } catch (err) {
+        console.warn("Supabase fetchAdminOrdersPage error:", err);
+      }
+    }
+
+    // Fallback local filtering
+    const allLocalOrders = orders.length > 0 ? orders : getOrders();
+    let filtered = allLocalOrders.filter((o) => {
+      let matches = true;
+      if (statusFilter && statusFilter !== "All") {
+        matches = matches && String(o.status).toLowerCase() === statusFilter.toLowerCase();
+      }
+      if (search && search.trim()) {
+        const s = search.toLowerCase().trim();
+        matches =
+          matches &&
+          (String(o.id).toLowerCase().includes(s) ||
+            o.customerName?.toLowerCase().includes(s) ||
+            o.customerEmail?.toLowerCase().includes(s));
+      }
+      return matches;
+    });
+
+    const totalCount = filtered.length;
+    const totalPages = Math.ceil(totalCount / pageSize) || 1;
+    const from = (page - 1) * pageSize;
+    const sliced = filtered.slice(from, from + pageSize);
+    const result = { orders: sliced, totalCount, totalPages, page, pageSize };
+    adminOrdersCache.set(cacheKey, result);
+    return result;
+  };
+
+  /**
+   * Admin Overview Metrics Computation (head & aggregate queries)
+   */
+  const fetchAdminMetrics = async () => {
+    let totalProducts = products.length;
+    let outOfStockCount = products.filter((p) => parseInt(p.stock, 10) <= 0 || !p.stock).length;
+    let totalOrders = orders.length;
+    let totalRevenue = orders.reduce((sum, o) => sum + (parseFloat(o.totalAmount || o.total || 0)), 0);
+
+    if (isSupabaseConfigured) {
+      try {
+        const [prodCountRes, lowStockRes, orderCountRes, revenueRes] = await Promise.all([
+          supabase.from("products").select("id", { count: "exact", head: true }),
+          supabase.from("products").select("id", { count: "exact", head: true }).lte("stock", 5),
+          supabase.from("orders").select("id", { count: "exact", head: true }),
+          supabase.from("orders").select("total_amount")
+        ]);
+
+        if (prodCountRes.count !== null) totalProducts = prodCountRes.count;
+        if (lowStockRes.count !== null) outOfStockCount = lowStockRes.count;
+        if (orderCountRes.count !== null) totalOrders = orderCountRes.count;
+        if (Array.isArray(revenueRes.data)) {
+          totalRevenue = revenueRes.data.reduce((sum, row) => sum + (parseFloat(row.total_amount) || 0), 0);
+        }
+      } catch (err) {
+        console.warn("Supabase fetchAdminMetrics error:", err);
+      }
+    }
+
+    return { totalProducts, outOfStockCount, totalOrders, totalRevenue };
+  };
+
   // Sync products changes
   const updateProductList = (newProducts) => {
+    clearAdminCache();
     setProducts(newProducts);
     saveProducts(newProducts);
   };
@@ -651,6 +866,10 @@ export function ProductProvider({ children }) {
         isLoading,
         isLoaded,
         fetchProductsPage,
+        fetchAdminProductsPage,
+        fetchAdminOrdersPage,
+        fetchAdminMetrics,
+        clearAdminCache,
         clearProductCache,
         addProduct,
         editProduct,
