@@ -95,7 +95,7 @@ export default function ProductCard({ product }) {
       {/* Product Image Container */}
       <Link
         href={`/product/${product.id}`}
-        className="relative block w-full pt-[85%] bg-gray-50/50 overflow-hidden"
+        className="relative block w-full pt-[100%] aspect-square bg-gray-50/50 overflow-hidden"
       >
         <img
           src={imgSrc}
@@ -115,17 +115,17 @@ export default function ProductCard({ product }) {
       </Link>
 
       {/* Card Body */}
-      <div className="p-3 sm:p-4 flex flex-col flex-grow justify-between bg-white">
+      <div className="p-2.5 sm:p-4 flex flex-col flex-grow justify-between bg-white">
         <div>
           {/* Subcategory / Category Header */}
-          <div className="text-[11px] sm:text-xs text-gray-400 font-medium mb-1 truncate capitalize">
+          <div className="text-[10px] sm:text-xs text-gray-400 font-medium mb-1 truncate capitalize">
             {displayCategory}
           </div>
 
           {/* Product Title */}
           <Link
             href={`/product/${product.id}`}
-            className="font-semibold text-gray-800 text-xs sm:text-sm hover:text-[#F58220] transition-colors line-clamp-2 leading-snug mb-1.5 min-h-[2.6rem] sm:min-h-[2.5rem] max-h-[2.7rem] sm:max-h-[2.6rem] overflow-hidden"
+            className="font-semibold text-gray-800 text-xs sm:text-sm hover:text-[#F58220] transition-colors line-clamp-2 leading-snug mb-1.5 h-[2.15rem] sm:h-[2.5rem] overflow-hidden"
             title={product.name}
           >
             {product.name}
@@ -138,8 +138,8 @@ export default function ProductCard({ product }) {
         </div>
 
         {/* Price & Action Button Row */}
-        <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-1.5 relative mt-auto">
-          <div className="min-w-0">
+        <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-1 sm:gap-1.5 relative mt-auto">
+          <div className="min-w-0 flex-1">
             <CountUpPrice targetPrice={price} originalPrice={originalPrice} />
           </div>
 
@@ -147,7 +147,7 @@ export default function ProductCard({ product }) {
             {...buttonPressProps}
             onClick={handleAddToCart}
             disabled={product.stock === 0}
-            className={`px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 flex items-center gap-1.5 shrink-0 ${
+            className={`px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 flex items-center gap-1 shrink-0 ${
               added
                 ? "bg-green-600 text-white shadow-xs"
                 : product.stock === 0
@@ -164,13 +164,13 @@ export default function ProductCard({ product }) {
                   exit={{ opacity: 0, y: 4 }}
                   className="flex items-center gap-1"
                 >
-                  <UilCheck size={15} /> Added
+                  <UilCheck size={14} /> Added
                 </motion.span>
               ) : product.stock === 0 ? (
                 "Out of Stock"
               ) : (
                 <motion.span key="add" className="flex items-center gap-1">
-                  <UilShoppingBag size={15} /> Add
+                  <UilShoppingBag size={14} /> Add
                 </motion.span>
               )}
             </AnimatePresence>

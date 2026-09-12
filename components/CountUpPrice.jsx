@@ -40,15 +40,15 @@ export default function CountUpPrice({ targetPrice, originalPrice, duration = 60
   }, [numTarget, numOriginal, duration, prefersReducedMotion, hasDiscount]);
 
   return (
-    <div className={`flex items-baseline gap-2 flex-wrap ${className}`} suppressHydrationWarning>
+    <div className={`flex items-baseline gap-1 sm:gap-1.5 flex-wrap ${className}`} suppressHydrationWarning>
       {/* Active Price */}
-      <span className="text-base sm:text-lg font-black text-gray-900 whitespace-nowrap" suppressHydrationWarning>
+      <span className="text-sm sm:text-base font-extrabold text-gray-900 whitespace-nowrap" suppressHydrationWarning>
         {formatPrice(currentValue)}
       </span>
 
       {/* Strikethrough Original Price */}
       {hasDiscount && (
-        <span className="text-xs text-gray-400 font-normal line-through" suppressHydrationWarning>
+        <span className="text-[10px] sm:text-xs text-gray-400 font-normal line-through whitespace-nowrap" suppressHydrationWarning>
           {formatPrice(numOriginal)}
         </span>
       )}

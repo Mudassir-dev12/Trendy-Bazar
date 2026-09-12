@@ -6,7 +6,7 @@ export default function ProductCardSkeleton() {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-xs flex flex-col h-full overflow-hidden animate-pulse">
       {/* Image Skeleton */}
-      <div className="w-full pt-[85%] bg-gray-200 relative overflow-hidden">
+      <div className="w-full pt-[100%] aspect-square bg-gray-200 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]" />
       </div>
 
