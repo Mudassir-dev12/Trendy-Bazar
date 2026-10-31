@@ -5,6 +5,7 @@ import { WishlistProvider } from "@/context/WishlistContext";
 import { ToastProvider } from "@/context/ToastContext";
 import LayoutShell from "@/components/LayoutShell";
 import MetaPixel from "@/components/MetaPixel";
+import { Analytics } from "@vercel/analytics/next";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.trendybazaarofficial.online";
 
@@ -173,6 +174,7 @@ export default function RootLayout({ children }) {
             </CartProvider>
           </ProductProvider>
         </ToastProvider>
+        <Analytics />
       </body>
     </html>
   );
